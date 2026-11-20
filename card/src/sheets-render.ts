@@ -23,8 +23,8 @@ export function renderStatusSheet(
     >
       <div class="sheet-panel" role="dialog" aria-label="Radarr status">
         <div class="sheet-header">
-          <h2>Status</h2>
-          <button class="text" @click=${onClose}>Close</button>
+          <h2>Radarr status</h2>
+          <button class="text" @click=${onClose}>Done</button>
         </div>
         <section>
           <h3>Health</h3>
@@ -92,6 +92,7 @@ export function renderFailureSheet(
 
 export function renderAddSheet(
   open: boolean,
+  layoutTablet: boolean,
   pick: Record<string, unknown> | undefined,
   profiles: QualityProfile[],
   roots: RootFolder[],
@@ -111,10 +112,11 @@ export function renderAddSheet(
   onConfirm: () => void,
 ): TemplateResult | typeof nothing {
   if (!open || !pick) return nothing;
+  const screen = layoutTablet ? "A04T" : "A04";
   return html`
     <div
       class="sheet-backdrop"
-      data-screen="A05"
+      data-screen=${screen}
       @click=${(e: Event) => {
         if (e.target === e.currentTarget) onCancel();
       }}
@@ -138,7 +140,7 @@ export function renderAddSheet(
           </select>
         </label>
         <label>
-          Root folder
+          Save to
           <select
             .value=${rootPath ?? ""}
             @change=${(e: Event) =>
@@ -153,9 +155,11 @@ export function renderAddSheet(
             )}
           </select>
         </label>
-        <label>
-          Minimum availability
-          <select
+        <details>
+          <summary>More options</summary>
+          <label>
+            Minimum availability
+            <select
             .value=${minAvailability}
             @change=${(e: Event) =>
               setMinAvail((e.target as HTMLSelectElement).value)}
@@ -165,6 +169,7 @@ export function renderAddSheet(
             <option value="released">Released</option>
           </select>
         </label>
+        </details>
         <label>
           <input
             type="checkbox"
@@ -173,8 +178,9 @@ export function renderAddSheet(
             @change=${(e: Event) =>
               setSearchOnAdd((e.target as HTMLInputElement).checked)}
           />
-          Search for download after adding
+          Start searching now
         </label>
+        <p class="hint-muted">Radarr looks for a download straight away.</p>
         <label>
           <input
             type="checkbox"
@@ -183,8 +189,11 @@ export function renderAddSheet(
             @change=${(e: Event) =>
               setMonitored((e.target as HTMLInputElement).checked)}
           />
-          Monitored
+          Monitor this movie
         </label>
+        <p class="hint-muted">
+          Radarr grabs it when it's released and upgrades it later.
+        </p>
         <div class="dialog-actions">
           <button class="text" @click=${onCancel}>Cancel</button>
           <button
@@ -219,8 +228,8 @@ export function renderQualitySheet(
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Quality profile">
-        <h2>Quality profile</h2>
+      <div class="sheet-panel" role="dialog" aria-label="Change quality profile">
+        <h2>Change quality profile</h2>
         <label>
           <input
             type="checkbox"
@@ -228,8 +237,11 @@ export function renderQualitySheet(
             @change=${(e: Event) =>
               setSearch((e.target as HTMLInputElement).checked)}
           />
-          Search after changing profile
+          Search for a matching release now
         </label>
+        <p class="hint-muted">
+          Your current file stays until a better one is imported.
+        </p>
         ${profiles.map(
           (p) => html`
             <button

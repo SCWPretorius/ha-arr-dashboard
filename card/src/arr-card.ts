@@ -1,4 +1,5 @@
 import { LitElement, html, nothing } from "lit";
+import { ifDefined } from "lit/directives/if-defined.js";
 import { customElement, property, state } from "lit/decorators.js";
 import { renderConfirmDialog } from "./confirm-dialog";
 import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
@@ -113,6 +114,8 @@ export class ArrDashboardCard extends LitElement {
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
   @state() private _releaseBusy = false;
+  @state() private _searchAgainBusy = false;
+  @state() private _grabOkScreen = false;
 
   private _refreshTimer?: ReturnType<typeof setInterval>;
   private _lookupTimer?: ReturnType<typeof setTimeout>;
@@ -266,7 +269,7 @@ export class ArrDashboardCard extends LitElement {
     });
   }
 
-  private _scheduleLookup(): void {
+  private _scheduleLookup(_force = false): void {
     if (this._lookupTimer) clearTimeout(this._lookupTimer);
     const q = this._addQuery.trim();
     if (q.length < 2) {
@@ -333,7 +336,7 @@ export class ArrDashboardCard extends LitElement {
       showToast(this, toastAdded(String(r.title), this._addSearchOn));
       this._addSheetOpen = false;
       this._addPick = undefined;
-      this._addPhase = "start";
+      this._addPhase = "added";
       this._addQuery = "";
       this._lookupResults = [];
       await this._refresh();
@@ -402,6 +405,7 @@ export class ArrDashboardCard extends LitElement {
 
     return html`
       <ha-card
+        data-screen=${ifDefined(this._compact ? "G04" : undefined)}
         class="${this._compact ? "compact" : ""} ${this._layoutTablet
           ? "layout-tablet"
           : ""} ${sideDetail ? "with-side-panel" : ""}"
@@ -429,6 +433,9 @@ export class ArrDashboardCard extends LitElement {
 
         ${!sideDetail && this._selectedMovie ? this._renderDetailDialog() : nothing}
         ${this._manualMovieId ? this._renderManualSearch() : nothing}
+        ${this._grabOkScreen
+          ? html`<span hidden data-screen="M07" aria-hidden="true"></span>`
+          : nothing}
 
         ${renderStatusSheet(
           this._statusOpen,
@@ -444,6 +451,7 @@ export class ArrDashboardCard extends LitElement {
         )}
         ${renderAddSheet(
           this._addSheetOpen,
+          this._layoutTablet,
           this._addPick,
           this._state?.quality_profiles ?? [],
           this._state?.root_folders ?? [],
@@ -508,6 +516,7 @@ export class ArrDashboardCard extends LitElement {
         ${renderConfirmDialog(
           this._confirm,
           this._confirmBusy,
+          this._layoutTablet,
           () => (this._confirm = null),
           () => void this._runConfirm(),
           (v) => {
@@ -569,12 +578,11 @@ export class ArrDashboardCard extends LitElement {
 
   private _renderOfflineBanner() {
     const last = this._state?.last_success;
+    const screen = this._layoutTablet ? "G01T" : "G01";
     return html`
-      <div class="banner" role="alert" data-screen="G01">
-        <strong>Can't reach Radarr.</strong> Actions are off until it's back.
-        ${last
-          ? html`<span class="hint-muted">Last OK: ${formatRelative(last)}</span>`
-          : nothing}
+      <div class="banner" role="alert" data-screen=${screen}>
+        <strong>Can't reach Radarr.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
+        Actions are off until it's back. Retrying every 30 s.
         <button class="text" @click=${() => void this._refresh()}>Retry</button>
         <button class="text" @click=${() => (this._statusOpen = true)}>
           Status
@@ -625,7 +633,7 @@ export class ArrDashboardCard extends LitElement {
 
   private _renderLibrary() {
     if (this._loading) {
-      return html`<div data-screen="L01" class="skeleton-block"></div>`;
+      return html`<div data-screen="L04" class="skeleton-block"></div>`;
     }
     const cfg = this.config;
     const movies = this._sortedLibrary();
@@ -797,18 +805,27 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private _renderDownloading() {
+    if (this._loading && !this._state?.queue) {
+      return html`<div data-screen="D05" class="skeleton-list" aria-busy="true"></div>`;
+    }
     const rows = this._queueRecords();
-    if (!rows.length) {
+  if (!rows.length) {
       return html`
-        <p data-screen="D01">
-          <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
-        </p>
+        <div data-screen="D02">
+          <p>
+            <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
+          </p>
+          <p class="hint-muted">
+            New downloads show up here with progress and time left.
+          </p>
+        </div>
       `;
     }
     const limit = this._compact && !this._showAllDownloads ? 3 : rows.length;
     const visible = rows.slice(0, limit);
+    const listScreen = this._layoutTablet ? "D01T" : "D01";
     return html`
-      <div data-screen="D02" role="list">
+      <div data-screen=${listScreen} role="list">
         ${visible.map((row) => this._renderQueueRow(row))}
       </div>
       ${this._compact && rows.length > 3 && !this._showAllDownloads
@@ -837,7 +854,6 @@ export class ArrDashboardCard extends LitElement {
       <div
         class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""}"
         role="listitem"
-        data-screen="D02"
       >
         <div class="queue-main">
           <strong>${title}</strong>
@@ -891,7 +907,7 @@ export class ArrDashboardCard extends LitElement {
                 `
               : html`
                   ${queueNeedsAttention(row)
-                    ? html`<p class="hint-muted">
+                    ? html`<p class="hint-muted" data-screen="D07T">
                         <ha-icon icon="mdi:information-outline"></ha-icon>
                         Removing is turned off on this dashboard.
                       </p>`
@@ -925,15 +941,19 @@ export class ArrDashboardCard extends LitElement {
 
   private _renderAdd() {
     const screen =
-      this._addPhase === "searching"
-        ? "A02"
-        : this._addPhase === "results"
-          ? "A03"
-          : this._addPhase === "no_results"
-            ? "A04"
-            : this._addPhase === "error"
+      this._addPhase === "added"
+        ? "A05"
+        : this._addPhase === "searching"
+          ? "A02"
+          : this._addPhase === "results"
+            ? this._layoutTablet
+              ? "A03T"
+              : "A03"
+            : this._addPhase === "no_results"
               ? "A06"
-              : "A01";
+              : this._addPhase === "error"
+                ? "A07"
+                : "A01";
     const movies = this._state?.movies ?? [];
     const comingSoon = this._lookupResults.filter((r) => {
       const st = String(r.status ?? r.statusType ?? "").toLowerCase();
@@ -958,10 +978,21 @@ export class ArrDashboardCard extends LitElement {
           ? html`<div class="skeleton-list" aria-busy="true"></div>`
           : nothing}
         ${this._addPhase === "no_results"
-          ? html`<p>No matches. Try another title or year.</p>`
+          ? html`
+              <p>No movies found for “${this._addQuery}”</p>
+              <p class="hint-muted">
+                Check the spelling, or try the original title or the year.
+              </p>
+            `
           : nothing}
         ${this._addPhase === "error"
-          ? html`<p class="error-text">${this._addError}</p>`
+          ? html`
+              <p><strong>Search didn't work</strong></p>
+              <p class="error-text">${this._addError}</p>
+              <button class="primary" @click=${() => this._scheduleLookup(true)}>
+                Try again
+              </button>
+            `
           : nothing}
         <div role="list">
           ${this._lookupResults.map((r) => {
@@ -1007,11 +1038,20 @@ export class ArrDashboardCard extends LitElement {
     `;
   }
 
-  private _detailBody(m: MovieSlim) {
+  private _detailBody(m: MovieSlim, sidePanel = false) {
     const extra = this._detailExtra;
     const hide = this._hideDestructive;
     const size = m.sizeOnDisk;
+    const screen =
+      hide && this._layoutTablet
+        ? "M12T"
+        : sidePanel
+          ? "M01T"
+          : m.hasFile
+            ? "M01"
+            : "M02";
     return html`
+      <div data-screen=${screen}>
       <button
         class="text"
         @click=${() => {
@@ -1021,7 +1061,7 @@ export class ArrDashboardCard extends LitElement {
       >
         ← Back
       </button>
-      <h2 data-screen="M01">${m.title} (${m.year})</h2>
+      <h2>${m.title} (${m.year})</h2>
       <img
         class="detail-poster"
         src=${m.posterUrl ?? ""}
@@ -1083,7 +1123,7 @@ export class ArrDashboardCard extends LitElement {
       </div>
       ${!hide && m.hasFile
         ? html`
-            <section data-screen="M12T">
+            <section>
               <h3>Fix or remove</h3>
               <button
                 class="outline-danger"
@@ -1117,6 +1157,7 @@ export class ArrDashboardCard extends LitElement {
             </section>
           `
         : nothing}
+      </div>
     `;
   }
 
@@ -1124,16 +1165,21 @@ export class ArrDashboardCard extends LitElement {
     const m = this._selectedMovie;
     if (!m) return nothing;
     return html`
-      <aside class="side-panel" data-screen="M02">${this._detailBody(m)}</aside>
+      <aside class="side-panel">${this._detailBody(m, true)}</aside>
     `;
   }
 
   private _renderDetailDialog() {
     const m = this._selectedMovie;
     if (!m) return nothing;
+    const dialogScreen = this._searchAgainBusy
+      ? "M03"
+      : m.hasFile
+        ? "M01"
+        : "M02";
     return html`
-      <dialog open class="detail-dialog" data-screen="M03">
-        ${this._detailBody(m)}
+      <dialog open class="detail-dialog" data-screen=${dialogScreen}>
+        ${this._detailBody(m, false)}
       </dialog>
     `;
   }
@@ -1142,8 +1188,15 @@ export class ArrDashboardCard extends LitElement {
     const filtered = this._releases.filter((r) =>
       this._showRejected ? true : r.approved !== false,
     );
+    const screen = this._releaseBusy
+      ? "M04"
+      : !filtered.length
+        ? "M11"
+        : this._layoutTablet
+          ? "M05T"
+          : "M05";
     return html`
-      <dialog open class="release-dialog" data-screen="M05">
+      <dialog open class="release-dialog" data-screen=${screen}>
         <button class="text" @click=${() => (this._manualMovieId = undefined)}>
           ← Back
         </button>
@@ -1158,12 +1211,26 @@ export class ArrDashboardCard extends LitElement {
           Show rejected releases
         </label>
         ${this._releaseBusy
-          ? html`<div class="skeleton-list"></div>`
-          : html`
-              <div role="list" data-screen="M05T">
-                ${filtered.map((r) => this._releaseRow(r))}
-              </div>
-            `}
+          ? html`
+              <p>Searching indexers…</p>
+              <p class="hint-muted">
+                This can take up to a minute. You can close this and come back.
+              </p>
+              <div class="skeleton-list" aria-busy="true"></div>
+            `
+          : !filtered.length
+            ? html`
+                <p>No releases found</p>
+                <p class="hint-muted">
+                  None of your indexers have this movie right now. Radarr keeps
+                  checking while it's monitored.
+                </p>
+              `
+            : html`
+                <div role="list">
+                  ${filtered.map((r) => this._releaseRow(r))}
+                </div>
+              `}
       </dialog>
     `;
   }
@@ -1216,6 +1283,8 @@ export class ArrDashboardCard extends LitElement {
     try {
       await this._ws("grab_release", { release });
       showToast(this, toastGrab());
+      this._grabOkScreen = true;
+      window.setTimeout(() => (this._grabOkScreen = false), 4000);
       this._manualMovieId = undefined;
       await this._refresh();
     } catch (err) {
@@ -1368,6 +1437,7 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private async _movieSearch(m: MovieSlim): Promise<void> {
+    this._searchAgainBusy = true;
     try {
       await this._ws("movie_search", { movie_id: m.id });
       showToast(this, toastSearchAgain(m.title));
@@ -1379,6 +1449,8 @@ export class ArrDashboardCard extends LitElement {
       } else {
         this._fail("movie_search", err);
       }
+    } finally {
+      this._searchAgainBusy = false;
     }
   }
 

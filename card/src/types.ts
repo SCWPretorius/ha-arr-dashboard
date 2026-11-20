@@ -57,7 +57,8 @@ export type AddPhase =
   | "results"
   | "no_results"
   | "error"
-  | "sheet";
+  | "sheet"
+  | "added";
 
 export interface ReleaseRow {
   guid?: string;

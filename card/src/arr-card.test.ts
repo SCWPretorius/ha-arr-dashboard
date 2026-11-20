@@ -77,8 +77,25 @@ describe("arr-card hide_destructive_actions", () => {
     );
     expect(remove).to.be.null;
     expect(removeSearch).to.be.null;
-    const hint = el.shadowRoot?.querySelector(".hint-muted");
+    const hint = el.shadowRoot?.querySelector('[data-screen="D07T"]');
     expect(hint?.textContent).to.contain("Removing is turned off");
+  });
+});
+
+describe("arr-card confirm screen ids", () => {
+  it("tags M06 on rejected grab confirm", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    (el as unknown as { _openConfirm: (k: string, p: object) => void })._openConfirm(
+      "m06",
+      { reasons: "CAM", releaseName: "Bad.cam", size: 1e9 },
+    );
+    await el.updateComplete;
+    const dialog = el.shadowRoot?.querySelector('[data-screen="M06"]');
+    expect(dialog).to.exist;
   });
 });
 
@@ -129,7 +146,7 @@ describe("arr-card confirm dialog", () => {
 });
 
 describe("arr-card add sheet", () => {
-  it("opens add sheet A05 from lookup", async () => {
+  it("opens add sheet A04 from lookup", async () => {
     const el = document.createElement("arr-card") as ArrDashboardCard;
     el.hass = mockHass as never;
     el.setConfig({ type: "custom:arr-card", tabs: ["add"], default_tab: "add" });
@@ -137,12 +154,19 @@ describe("arr-card add sheet", () => {
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 60));
     await el.updateComplete;
-    const open = el as unknown as {
+    const card = el as unknown as {
+      _state: object;
       _openAddSheet: (r: Record<string, unknown>) => void;
     };
-    open._openAddSheet({ title: "New Film", year: 2024, tmdbId: 99 });
+    card._state = {
+      quality_profiles: [{ id: 1, name: "HD" }],
+      root_folders: [{ id: 1, path: "/movies", freeSpace: 1e12 }],
+    };
+    card._openAddSheet({ title: "New Film", year: 2024, tmdbId: 99 });
     await el.updateComplete;
-    const sheet = el.shadowRoot?.querySelector('[data-screen="A05"]');
+    const sheet = el.shadowRoot?.querySelector(
+      '[data-screen="A04"], [data-screen="A04T"]',
+    );
     expect(sheet).to.exist;
     expect(sheet?.textContent).to.contain("Add New Film");
   });

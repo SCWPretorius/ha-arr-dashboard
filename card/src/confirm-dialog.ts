@@ -7,9 +7,32 @@ function formatSize(bytes?: number): string {
   return `${gb.toFixed(1)} GB`;
 }
 
+function confirmScreenId(
+  kind: NonNullable<ConfirmState["kind"]>,
+  layoutTablet: boolean,
+): string {
+  switch (kind) {
+    case "m06":
+      return "M06";
+    case "m09":
+      return layoutTablet ? "M09T" : "M09";
+    case "m10":
+      return "M10";
+    case "d04":
+      return "D04";
+    case "d04b":
+      return "D04b";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
 export function renderConfirmDialog(
   confirm: ConfirmState | null,
   busy: boolean,
+  layoutTablet: boolean,
   onCancel: () => void,
   onConfirm: () => void,
   setDeleteFiles: (v: boolean) => void,
@@ -159,10 +182,13 @@ export function renderConfirmDialog(
       return nothing;
   }
 
+  const screen = confirmScreenId(confirm.kind!, layoutTablet);
+
   return html`
     <dialog
       open
       role="alertdialog"
+      data-screen=${screen}
       aria-labelledby="confirm-title"
       @cancel=${(e: Event) => {
         e.preventDefault();

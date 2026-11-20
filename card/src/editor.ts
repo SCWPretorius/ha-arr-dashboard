@@ -338,6 +338,14 @@ export class ArrCardEditor extends LitElement {
             Start searching now (default for Add movie)
           </label>
 
+          <section data-screen="S01" class="sonarr-preview">
+            <h3>Sonarr (later)</h3>
+            <p class="hint">
+              Same card will support TV series with seasons and episodes (spec
+              §15). Radarr v1 uses the screens above.
+            </p>
+          </section>
+
           <h3>Safety</h3>
           <label>
             <input
