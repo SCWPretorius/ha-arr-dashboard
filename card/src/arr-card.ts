@@ -1660,15 +1660,9 @@ export class ArrDashboardCard extends LitElement {
   }
 }
 
-customElements.define(
-  "arr-dashboard-card",
-  class extends ArrDashboardCard {},
-);
-
 declare global {
   interface HTMLElementTagNameMap {
     "arr-card": ArrDashboardCard;
-    "arr-dashboard-card": ArrDashboardCard;
   }
 }
 

@@ -1,6 +1,7 @@
 {
   "domain": "arr_dashboard",
   "name": "Arr Dashboard",
+  "after_dependencies": ["frontend", "lovelace"],
   "codeowners": ["@SCWPretorius"],
   "config_flow": true,
   "dependencies": ["http"],
