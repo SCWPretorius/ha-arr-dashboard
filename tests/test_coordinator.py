@@ -9,7 +9,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.arr_dashboard.const import DOMAIN
 from custom_components.arr_dashboard.radarr.client import RadarrClient
-from custom_components.arr_dashboard.radarr.coordinator import RadarrDataUpdateCoordinator
+from custom_components.arr_dashboard.radarr.coordinator import (
+    RadarrDataUpdateCoordinator,
+)
 
 
 async def test_coordinator_loads_data(
