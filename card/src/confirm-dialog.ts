@@ -1,6 +1,12 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { ConfirmState } from "./types";
 
+function formatSize(bytes?: number): string {
+  if (!bytes) return "";
+  const gb = bytes / 1e9;
+  return `${gb.toFixed(1)} GB`;
+}
+
 export function renderConfirmDialog(
   confirm: ConfirmState | null,
   busy: boolean,
@@ -10,30 +16,34 @@ export function renderConfirmDialog(
   setBlockRelease: (v: boolean) => void,
   setSearchAgain: (v: boolean) => void,
   setRemoveFromClient: (v: boolean) => void,
+  setAddImportExclusion: (v: boolean) => void,
 ) {
   if (!confirm?.kind) return nothing;
 
   const p = confirm.payload;
   const title = p.title as string;
   const year = p.year as number | undefined;
+  const quality = p.quality as string | undefined;
+  const size = p.size as number | undefined;
 
-  const titles: Record<string, string> = {
-    m09: "Delete file and redownload?",
-    m10: `Remove ${title}?`,
-    d04: "Remove and blocklist this download?",
-    d04b: "Remove this download?",
-    m06: "Grab a rejected release?",
-  };
-
-  let body = "";
+  let heading = "";
+  let body: TemplateResult | string = "";
   let actionLabel = "Confirm";
   let danger = true;
   let options: TemplateResult | typeof nothing = nothing;
 
   switch (confirm.kind) {
     case "m09":
-      body =
-        "This deletes the movie file from disk. Radarr then searches for a new copy. You can't watch it until the new download finishes.";
+      heading = "Delete file and redownload?";
+      body = html`
+        <p>
+          This deletes <strong>${title}${year ? ` (${year})` : ""}</strong>
+          ${quality ? ` · ${quality}` : ""}
+          ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
+          searches for a new copy.
+        </p>
+        <p>You can't watch it until the new download finishes.</p>
+      `;
       actionLabel = "Delete file & redownload";
       if (p.showBlockCheckbox) {
         options = html`
@@ -46,12 +56,18 @@ export function renderConfirmDialog(
             />
             Block this release so it isn't downloaded again.
           </label>
+          <p class="hint-muted">Recommended if the file was bad.</p>
         `;
       }
       break;
     case "m10":
-      body =
-        "Radarr stops tracking this movie. The files stay on disk unless you tick the box below.";
+      heading = `Remove ${title}?`;
+      body = html`
+        <p>
+          Radarr stops tracking this movie.
+          <strong>The files stay on disk</strong> unless you tick the box below.
+        </p>
+      `;
       actionLabel = confirm.deleteFiles
         ? "Remove movie & delete files"
         : "Remove movie";
@@ -64,12 +80,29 @@ export function renderConfirmDialog(
               setDeleteFiles((e.target as HTMLInputElement).checked)}
           />
           Also delete the movie files
+          ${size ? `(${formatSize(size)})` : ""}
         </label>
         <p class="hint-muted">Leave unticked to keep the files.</p>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.addImportExclusion ?? false}
+            @change=${(e: Event) =>
+              setAddImportExclusion((e.target as HTMLInputElement).checked)}
+          />
+          Don't add it again from lists
+        </label>
       `;
       break;
     case "d04":
-      body = `${title}${year ? ` (${year})` : ""} is removed from the download client and this release is blocked.`;
+      heading = "Remove and blocklist this download?";
+      body = html`
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the download client and this release is blocked so it isn't grabbed
+          again.
+        </p>
+      `;
       actionLabel = "Remove & blocklist";
       options = html`
         <label>
@@ -93,7 +126,13 @@ export function renderConfirmDialog(
       `;
       break;
     case "d04b":
-      body = `${title}${year ? ` (${year})` : ""} is removed from the queue. Radarr may grab the same release again.`;
+      heading = "Remove this download?";
+      body = html`
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the queue. Radarr may grab the same release again.
+        </p>
+      `;
       actionLabel = "Remove download";
       options = html`
         <label>
@@ -108,7 +147,11 @@ export function renderConfirmDialog(
       `;
       break;
     case "m06":
-      body = `Radarr rejected this release: ${p.reasons ?? ""}`;
+      heading = "Grab a rejected release?";
+      body = html`
+        <p>Radarr rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
+        <p class="mono">${p.releaseName ?? ""} · ${formatSize(p.size as number)}</p>
+      `;
       actionLabel = "Grab anyway";
       danger = false;
       break;
@@ -126,11 +169,21 @@ export function renderConfirmDialog(
         if (!busy) onCancel();
       }}
     >
-      <h2 id="confirm-title">${titles[confirm.kind]}</h2>
-      <p>${body}</p>
+      <ha-icon
+        icon="mdi:alert-outline"
+        class="danger-icon"
+        style="color: var(--error-color)"
+      ></ha-icon>
+      <h2 id="confirm-title">${heading}</h2>
+      ${typeof body === "string" ? html`<p>${body}</p>` : body}
       ${options}
       <div class="dialog-actions">
-        <button class="text" ?disabled=${busy} @click=${onCancel}>
+        <button
+          class="text"
+          ?disabled=${busy}
+          @click=${onCancel}
+          autofocus
+        >
           Cancel
         </button>
         <button
@@ -139,9 +192,28 @@ export function renderConfirmDialog(
           aria-busy=${busy ? "true" : "false"}
           @click=${onConfirm}
         >
-          ${busy ? "Working…" : actionLabel}
+          <ha-icon icon=${danger ? "mdi:delete-forever" : "mdi:download"}></ha-icon>
+          ${busy
+            ? kindBusyLabel(confirm.kind)
+            : actionLabel}
         </button>
       </div>
     </dialog>
   `;
+}
+
+function kindBusyLabel(kind: ConfirmState["kind"]): string {
+  switch (kind) {
+    case "m09":
+      return "Deleting…";
+    case "m10":
+      return "Removing…";
+    case "d04":
+    case "d04b":
+      return "Removing…";
+    case "m06":
+      return "Sending…";
+    default:
+      return "Working…";
+  }
 }

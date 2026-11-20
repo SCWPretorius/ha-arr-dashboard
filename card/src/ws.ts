@@ -25,6 +25,12 @@ export interface MovieSlim {
   status?: string;
   tmdbId?: number;
   imdbId?: string;
+  added?: string;
+  overview?: string;
+  runtime?: number;
+  certification?: string;
+  path?: string;
+  qualityProfileId?: number;
 }
 
 export interface QueueItem {

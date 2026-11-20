@@ -48,4 +48,25 @@ export interface ConfirmState {
   deleteFiles?: boolean;
   searchAgain?: boolean;
   removeFromClient?: boolean;
+  addImportExclusion?: boolean;
+}
+
+export type AddPhase =
+  | "start"
+  | "searching"
+  | "results"
+  | "no_results"
+  | "error"
+  | "sheet";
+
+export interface ReleaseRow {
+  guid?: string;
+  title?: string;
+  size?: number;
+  age?: number;
+  seeders?: number;
+  indexer?: string;
+  rejections?: string[];
+  approved?: boolean;
+  customFormatScore?: number;
 }
