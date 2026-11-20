@@ -12,6 +12,7 @@ import {
   type LibraryChip,
   type LibrarySort,
 } from "./library-logic";
+import { posterUrlForTile } from "./poster-url";
 import { animateQueueRowExit } from "./queue-motion";
 import {
   releaseQualityName,
@@ -150,9 +151,7 @@ export class ArrDashboardCard extends LitElement {
       show_header_chips: ["disk", "queue", "health"],
       hide_destructive_actions: false,
       add_defaults: { search_on_add: true },
-      show_rows: [],
       upcoming_days: 14,
-      recent_days: 7,
       library_view: "grid",
       library_sort: "title",
       library_filter: "all",
@@ -791,7 +790,11 @@ export class ArrDashboardCard extends LitElement {
         class="poster-btn small"
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
         <span class="poster-caption">${m.title}</span>
       </button>
     `;
@@ -805,7 +808,12 @@ export class ArrDashboardCard extends LitElement {
           role="listitem"
           @click=${() => void this._openMovieDetail(m)}
         >
-          <img class="thumb" src=${m.posterUrl ?? ""} alt="" />
+          <img
+            class="thumb"
+            src=${posterUrlForTile(m.posterUrl)}
+            alt=""
+            loading="lazy"
+          />
           <span>${m.title} (${m.year})</span>
           ${m.hasFile
             ? html`<span class="pill ok">On disk</span>`
@@ -820,7 +828,11 @@ export class ArrDashboardCard extends LitElement {
         aria-label=${m.title ?? "Movie"}
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
         <div class="poster-caption">${m.title} (${m.year})</div>
       </button>
     `;

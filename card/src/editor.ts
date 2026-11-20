@@ -49,12 +49,6 @@ export class ArrCardEditor extends LitElement {
     this._set("show_header_chips", next);
   }
 
-  private _toggleRow(row: "upcoming" | "recent", on: boolean): void {
-    const cur = [...(this._value("show_rows") ?? [])];
-    const next = on ? [...new Set([...cur, row])] : cur.filter((r) => r !== row);
-    this._set("show_rows", next);
-  }
-
   protected render() {
     const tabs = this._value("tabs") ?? ["add", "downloading", "library"];
     const ad = this._value("add_defaults") ?? {};
@@ -194,33 +188,8 @@ export class ArrCardEditor extends LitElement {
           )}
 
           <h3>Library</h3>
-          <p>Home rows:</p>
           <label>
-            <input
-              type="checkbox"
-              .checked=${(this._value("show_rows") ?? []).includes("upcoming")}
-              @change=${(e: Event) =>
-                this._toggleRow(
-                  "upcoming",
-                  (e.target as HTMLInputElement).checked,
-                )}
-            />
-            Upcoming
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              .checked=${(this._value("show_rows") ?? []).includes("recent")}
-              @change=${(e: Event) =>
-                this._toggleRow(
-                  "recent",
-                  (e.target as HTMLInputElement).checked,
-                )}
-            />
-            Recent
-          </label>
-          <label>
-            Upcoming window (days)
+            Upcoming window (days, Add tab)
             <input
               type="number"
               min="1"
@@ -228,19 +197,6 @@ export class ArrCardEditor extends LitElement {
               @change=${(e: Event) =>
                 this._set(
                   "upcoming_days",
-                  Number((e.target as HTMLInputElement).value),
-                )}
-            />
-          </label>
-          <label>
-            Recent window (days)
-            <input
-              type="number"
-              min="1"
-              .value=${String(this._value("recent_days") ?? 7)}
-              @change=${(e: Event) =>
-                this._set(
-                  "recent_days",
                   Number((e.target as HTMLInputElement).value),
                 )}
             />

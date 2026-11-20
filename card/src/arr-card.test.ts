@@ -222,7 +222,6 @@ describe("arr-card library grid", () => {
       default_tab: "library",
       layout: "tablet",
       compact: false,
-      show_rows: ["upcoming", "recent"],
     });
     document.body.appendChild(el);
     await el.updateComplete;
