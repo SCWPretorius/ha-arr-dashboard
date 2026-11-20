@@ -52,6 +52,17 @@ class _QueueSnap:
     had_file: bool
 
 
+def _tmdb_tile_poster(url: str | None) -> str | None:
+    """Use a smaller TMDb profile for list/grid payloads when Radarr sends originals."""
+    if not url or not url.startswith("https://image.tmdb.org/t/p/"):
+        return url
+    rest = url.removeprefix("https://image.tmdb.org/t/p/")
+    if "/" not in rest:
+        return url
+    _size, path = rest.split("/", 1)
+    return f"https://image.tmdb.org/t/p/w185/{path}"
+
+
 def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
     images = movie.get("images") or []
     remote_poster = None
@@ -59,7 +70,8 @@ def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
         if img.get("coverType") == "poster" and img.get("remoteUrl"):
             remote_poster = img["remoteUrl"]
             break
-    poster_url = remote_poster or f"/api/arr_dashboard/{entry_id}/poster/{movie['id']}"
+    raw_poster = remote_poster or f"/api/arr_dashboard/{entry_id}/poster/{movie['id']}"
+    poster_url = _tmdb_tile_poster(raw_poster) or raw_poster
     has_file = movie.get("movieFile") is not None
     return {
         "id": movie["id"],

@@ -12,6 +12,7 @@ export default [
       globals: {
         customElements: "readonly",
         HTMLElement: "readonly",
+        CustomElementConstructor: "readonly",
         HTMLInputElement: "readonly",
         HTMLSelectElement: "readonly",
         Event: "readonly",

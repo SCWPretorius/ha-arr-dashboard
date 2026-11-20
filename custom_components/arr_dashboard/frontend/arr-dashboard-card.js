@@ -346,6 +346,23 @@ function queueStatusLabel(row) {
     return st;
 }
 
+/** TMDb tile size for library grid/list thumbnails (see image.tmdb.org size docs). */
+const TMDB_TILE_SIZE = "w185";
+const TMDB_PREFIX = "https://image.tmdb.org/t/p/";
+/** Prefer a smaller TMDb profile when the URL is a TMDb image; otherwise unchanged. */
+function posterUrlForTile(url) {
+    if (!url?.startsWith(TMDB_PREFIX)) {
+        return url ?? "";
+    }
+    const rest = url.slice(TMDB_PREFIX.length);
+    const slash = rest.indexOf("/");
+    if (slash < 0) {
+        return url;
+    }
+    const path = rest.slice(slash + 1);
+    return `${TMDB_PREFIX}${TMDB_TILE_SIZE}/${path}`;
+}
+
 const EXIT_MS = 200;
 function prefersReducedMotion() {
     return (typeof window !== "undefined" &&
@@ -2052,11 +2069,6 @@ class ArrCardEditor extends i {
             : cur.filter((c) => c !== chip);
         this._set("show_header_chips", next);
     }
-    _toggleRow(row, on) {
-        const cur = [...(this._value("show_rows") ?? [])];
-        const next = on ? [...new Set([...cur, row])] : cur.filter((r) => r !== row);
-        this._set("show_rows", next);
-    }
     render() {
         const tabs = this._value("tabs") ?? ["add", "downloading", "library", "issues"];
         const ad = this._value("add_defaults") ?? {};
@@ -2164,25 +2176,8 @@ class ArrCardEditor extends i {
             `)}
 
           <h3>Library</h3>
-          <p>Home rows:</p>
           <label>
-            <input
-              type="checkbox"
-              .checked=${(this._value("show_rows") ?? []).includes("upcoming")}
-              @change=${(e) => this._toggleRow("upcoming", e.target.checked)}
-            />
-            Upcoming
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              .checked=${(this._value("show_rows") ?? []).includes("recent")}
-              @change=${(e) => this._toggleRow("recent", e.target.checked)}
-            />
-            Recent
-          </label>
-          <label>
-            Upcoming window (days)
+            Upcoming window (days, Add tab)
             <input
               type="number"
               min="1"
@@ -2373,7 +2368,6 @@ class ArrDashboardCard extends i {
             show_header_chips: [],
             hide_destructive_actions: false,
             add_defaults: { search_on_add: true },
-            show_rows: [],
             upcoming_days: 14,
             recent_days: 7,
             library_sort: "title",
@@ -3075,7 +3069,11 @@ class ArrDashboardCard extends i {
         class="poster-btn small"
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
         <span class="poster-caption">${m.title}</span>
       </button>
     `;
@@ -3088,7 +3086,11 @@ class ArrDashboardCard extends i {
         aria-label=${m.title ?? "Movie"}
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
       </button>
     `;
     }

@@ -6,6 +6,7 @@ import { defineElement } from "./define-element";
 import { renderConfirmDialog } from "./confirm-dialog";
 import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
 import type { LibrarySort } from "./library-logic";
+import { posterUrlForTile } from "./poster-url";
 import { animateQueueRowExit } from "./queue-motion";
 import {
   releaseQualityName,
@@ -153,7 +154,6 @@ export class ArrDashboardCard extends LitElement {
       show_header_chips: [],
       hide_destructive_actions: false,
       add_defaults: { search_on_add: true },
-      show_rows: [],
       upcoming_days: 14,
       recent_days: 7,
       library_sort: "title",
@@ -970,7 +970,11 @@ export class ArrDashboardCard extends LitElement {
         class="poster-btn small"
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
         <span class="poster-caption">${m.title}</span>
       </button>
     `;
@@ -984,7 +988,11 @@ export class ArrDashboardCard extends LitElement {
         aria-label=${m.title ?? "Movie"}
         @click=${() => void this._openMovieDetail(m)}
       >
-        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <img
+          src=${posterUrlForTile(m.posterUrl)}
+          alt=""
+          loading="lazy"
+        />
       </button>
     `;
   }
