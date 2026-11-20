@@ -3496,8 +3496,6 @@ __decorate([
 ArrDashboardCard = __decorate([
     t("arr-card")
 ], ArrDashboardCard);
-customElements.define("arr-dashboard-card", class extends ArrDashboardCard {
-});
 window.customCards =
     window.customCards ?? [];
 window.customCards.push({
