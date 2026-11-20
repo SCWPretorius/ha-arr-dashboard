@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-import re
 from unittest.mock import AsyncMock, patch
-
-import pytest
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.arr_dashboard.const import DOMAIN, EVENT_DOWNLOAD_FAILED
-from custom_components.arr_dashboard.radarr.coordinator import (
-    RadarrDataUpdateCoordinator,
-)
 from custom_components.arr_dashboard.radarr.actions import (
     async_delete_file_redownload,
     async_retry_import,
 )
 from custom_components.arr_dashboard.radarr.client import RadarrClient
+from custom_components.arr_dashboard.radarr.coordinator import (
+    RadarrDataUpdateCoordinator,
+)
 
 
 async def test_remove_movie_delete_files_default_false(hass: HomeAssistant) -> None:
