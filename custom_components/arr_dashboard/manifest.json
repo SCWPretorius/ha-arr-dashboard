@@ -5,8 +5,8 @@
   "config_flow": true,
   "dependencies": ["http"],
   "documentation": "https://github.com/SCWPretorius/ha-arr-dashboard",
+  "integration_type": "service",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/SCWPretorius/ha-arr-dashboard/issues",
-  "version": "1.0.0",
-  "integration_type": "service"
+  "version": "1.0.0"
 }
