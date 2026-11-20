@@ -81,9 +81,6 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     except ValueError:
         pass
 
-    if DATA_EXTRA_MODULE_URL in hass.data:
-        add_extra_js_url(hass, CARD_MODULE_URL)
-
     try:
         await _async_register_lovelace_module(hass)
     except Exception:  # noqa: BLE001

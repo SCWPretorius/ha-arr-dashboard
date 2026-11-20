@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from "vitest";
 import "./arr-card";
 import type { ArrDashboardCard } from "./arr-card";
 
-function mockMovies(count: number) {
+function mockMovies(count: number, allOnDisk = false) {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
     title: `Movie ${String.fromCharCode(65 + (i % 26))}${i}`,
     year: 2000 + (i % 20),
-    hasFile: i % 3 === 0,
+    hasFile: allOnDisk ? true : i % 3 === 0,
     posterUrl: "",
     status: i % 5 === 0 ? "inCinemas" : "released",
     added: new Date(Date.now() - i * 86400000).toISOString(),
@@ -193,22 +193,22 @@ describe("arr-card add sheet", () => {
   });
 });
 
-describe("arr-card status sheet G02", () => {
-  it("opens from health chip", async () => {
+describe("arr-card issues tab", () => {
+  it("shows health messages on the Issues tab", async () => {
     const el = document.createElement("arr-card") as ArrDashboardCard;
     el.hass = mockHass as never;
-    el.setConfig({ type: "custom:arr-card" });
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["library", "issues"],
+      default_tab: "issues",
+    });
     document.body.appendChild(el);
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 60));
     await el.updateComplete;
-    const chip = el.shadowRoot?.querySelector(".chip-button");
-    chip?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    (el as unknown as { _statusOpen: boolean })._statusOpen = true;
-    await el.updateComplete;
-    const sheet = el.shadowRoot?.querySelector('[data-screen="G02"]');
-    expect(sheet).to.exist;
-    expect(sheet?.textContent).to.contain("Disk low");
+    const pane = el.shadowRoot?.querySelector('[data-screen="I01"]');
+    expect(pane).to.exist;
+    expect(pane?.textContent).to.contain("Disk low");
   });
 });
 
@@ -233,6 +233,10 @@ describe("arr-card library grid", () => {
     expect(grid?.querySelectorAll(".poster-btn").length).to.be.greaterThan(1);
     expect(el.shadowRoot?.textContent).not.to.contain("Recently added");
     expect(el.shadowRoot?.querySelector("arr-virtual-list")).to.equal(null);
+    expect(grid?.querySelector(".poster-caption")).to.equal(null);
+    expect(el.shadowRoot?.querySelector(".chip-row .filter-chip")).to.equal(
+      null,
+    );
   });
 
   it("keeps grid row layout for 300 movies", async () => {
@@ -245,7 +249,7 @@ describe("arr-card library grid", () => {
         if (msg.type === "arr_dashboard" && msg.command === "get_state") {
           return {
             reachable: true,
-            movies: mockMovies(300),
+            movies: mockMovies(300, true),
             queue: { records: [], totalRecords: 0 },
             queue_count: 0,
             health: [],

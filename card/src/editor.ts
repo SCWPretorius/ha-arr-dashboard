@@ -34,7 +34,9 @@ export class ArrCardEditor extends LitElement {
   }
 
   private _toggleTab(tab: TabId, on: boolean): void {
-    const cur = [...(this._value("tabs") ?? ["add", "downloading", "library"])];
+    const cur = [
+      ...(this._value("tabs") ?? ["add", "downloading", "library", "issues"]),
+    ];
     const next = on
       ? [...new Set([...cur, tab])]
       : cur.filter((t) => t !== tab);
@@ -42,7 +44,7 @@ export class ArrCardEditor extends LitElement {
   }
 
   private _toggleChip(chip: "disk" | "queue" | "health", on: boolean): void {
-    const cur = [...(this._value("show_header_chips") ?? ["disk", "queue", "health"])];
+    const cur = [...(this._value("show_header_chips") ?? [])];
     const next = on
       ? [...new Set([...cur, chip])]
       : cur.filter((c) => c !== chip);
@@ -56,7 +58,7 @@ export class ArrCardEditor extends LitElement {
   }
 
   protected render() {
-    const tabs = this._value("tabs") ?? ["add", "downloading", "library"];
+    const tabs = this._value("tabs") ?? ["add", "downloading", "library", "issues"];
     const ad = this._value("add_defaults") ?? {};
     const hide = Boolean(this._value("hide_destructive_actions"));
 
@@ -152,10 +154,11 @@ export class ArrCardEditor extends LitElement {
               <option value="library">Library</option>
               <option value="downloading">Downloading</option>
               <option value="add">Add</option>
+              <option value="issues">Issues</option>
             </select>
           </label>
           <p>Show tabs:</p>
-          ${(["add", "downloading", "library"] as TabId[]).map(
+          ${(["add", "downloading", "library", "issues"] as TabId[]).map(
             (t) => html`
               <label>
                 <input
@@ -177,11 +180,9 @@ export class ArrCardEditor extends LitElement {
               <label>
                 <input
                   type="checkbox"
-                  .checked=${(this._value("show_header_chips") ?? [
-                    "disk",
-                    "queue",
-                    "health",
-                  ]).includes(c)}
+                  .checked=${(this._value("show_header_chips") ?? []).includes(
+                    c,
+                  )}
                   @change=${(e: Event) =>
                     this._toggleChip(
                       c,
@@ -245,20 +246,7 @@ export class ArrCardEditor extends LitElement {
                 )}
             />
           </label>
-          <label>
-            Default view
-            <select
-              .value=${String(this._value("library_view") ?? "grid")}
-              @change=${(e: Event) =>
-                this._set(
-                  "library_view",
-                  (e.target as HTMLSelectElement).value as "grid" | "list",
-                )}
-            >
-              <option value="grid">Grid</option>
-              <option value="list">List</option>
-            </select>
-          </label>
+          <p class="hint-muted">Library is always a poster grid of on-disk movies.</p>
           <label>
             Default sort
             <select
@@ -269,21 +257,6 @@ export class ArrCardEditor extends LitElement {
               <option value="title">Title</option>
               <option value="added">Added</option>
               <option value="year">Year</option>
-            </select>
-          </label>
-          <label>
-            Default filter
-            <select
-              .value=${String(this._value("library_filter") ?? "all")}
-              @change=${(e: Event) =>
-                this._set(
-                  "library_filter",
-                  (e.target as HTMLSelectElement).value,
-                )}
-            >
-              <option value="all">All</option>
-              <option value="missing">Missing</option>
-              <option value="downloaded">Downloaded</option>
             </select>
           </label>
 

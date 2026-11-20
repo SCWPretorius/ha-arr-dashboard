@@ -9,7 +9,6 @@ import {
   inLibrary,
   sortMovies,
   upcomingMovies,
-  type LibraryChip,
   type LibrarySort,
 } from "./library-logic";
 import { animateQueueRowExit } from "./queue-motion";
@@ -23,6 +22,7 @@ import {
   renderFailureSheet,
   renderQualitySheet,
   renderQueueOverflowSheet,
+  renderIssuesPanel,
   renderStatusSheet,
 } from "./sheets-render";
 import {
@@ -102,10 +102,8 @@ export class ArrDashboardCard extends LitElement {
   @state() private _addBusy = false;
   @state() private _selectedMovie?: MovieSlim;
   @state() private _detailExtra?: Record<string, unknown>;
-  @state() private _libraryChip: LibraryChip = "all";
   @state() private _librarySearch = "";
   @state() private _librarySort: LibrarySort = "title";
-  @state() private _libraryView: "grid" | "list" = "grid";
   @state() private _compact = false;
   @state() private _hostWidth = 0;
   @state() private _statusOpen = false;
@@ -143,29 +141,24 @@ export class ArrDashboardCard extends LitElement {
     this.config = {
       title: "Movies",
       icon: "mdi:movie-open",
-      tabs: ["add", "downloading", "library"],
+      tabs: ["add", "downloading", "library", "issues"],
       default_tab: "library",
       compact: "auto",
       layout: "auto",
-      show_header_chips: ["disk", "queue", "health"],
+      show_header_chips: [],
       hide_destructive_actions: false,
       add_defaults: { search_on_add: true },
       show_rows: [],
       upcoming_days: 14,
       recent_days: 7,
-      library_view: "grid",
       library_sort: "title",
-      library_filter: "all",
+      library_filter: "downloaded",
       external_link: false,
       ...config,
       type: config.type || "custom:arr-card",
     };
     this._tab = this.config.default_tab ?? "library";
-    const lf = this.config.library_filter ?? "all";
-    this._libraryChip =
-      lf === "missing" || lf === "downloaded" ? lf : "all";
     this._librarySort = (this.config.library_sort as LibrarySort) ?? "title";
-    this._libraryView = this.config.library_view ?? "grid";
     const ad = this.config.add_defaults ?? {};
     this._addSearchOn = ad.search_on_add !== false;
     this._addMinAvail = ad.minimum_availability ?? "released";
@@ -321,7 +314,7 @@ export class ArrDashboardCard extends LitElement {
   const queue = this._state?.queue?.records ?? [];
     const filtered = filterMovies(
       movies,
-      this._libraryChip,
+      "downloaded",
       this._librarySearch,
       queue,
     );
@@ -472,6 +465,7 @@ export class ArrDashboardCard extends LitElement {
     const failedInQueue = this._queueRecords().some(
       (r) => (r.status || "").toLowerCase() === "failed",
     );
+    const healthCount = this._state?.health?.length ?? 0;
     const sideDetail =
       this._layoutTablet && this._selectedMovie && this._tab === "library";
 
@@ -487,10 +481,14 @@ export class ArrDashboardCard extends LitElement {
             <ha-icon icon="${cfg.icon ?? "mdi:movie-open"}"></ha-icon>
             <span>${cfg.title ?? "Movies"}</span>
           </div>
-          <div class="chips">${this._renderChips()}</div>
+          ${this._headerChips().length
+            ? html`<div class="chips">${this._renderChips()}</div>`
+            : nothing}
         </div>
 
-        ${showTabBar ? this._renderTabs(tabs, queueCount, failedInQueue) : nothing}
+        ${showTabBar
+          ? this._renderTabs(tabs, queueCount, failedInQueue, healthCount)
+          : nothing}
 
         ${this._offline ? this._renderOfflineBanner() : nothing}
 
@@ -499,6 +497,7 @@ export class ArrDashboardCard extends LitElement {
             ${this._tab === "library" ? this._renderLibrary() : nothing}
             ${this._tab === "downloading" ? this._renderDownloading() : nothing}
             ${this._tab === "add" ? this._renderAdd() : nothing}
+            ${this._tab === "issues" ? this._renderIssues() : nothing}
           </div>
           ${sideDetail ? this._renderDetailPanel() : nothing}
         </div>
@@ -623,6 +622,7 @@ export class ArrDashboardCard extends LitElement {
     tabs: TabId[],
     queueCount: number,
     failedInQueue: boolean,
+    healthCount: number,
   ) {
     return html`
       <div class="tabs" role="tablist" aria-label="Arr card tabs">
@@ -638,11 +638,20 @@ export class ArrDashboardCard extends LitElement {
                 ? "Add"
                 : t === "downloading"
                   ? "Downloading"
-                  : "Library"}
+                  : t === "issues"
+                    ? "Issues"
+                    : "Library"}
               ${t === "downloading" && queueCount > 0
                 ? html`
                     <span class="badge ${failedInQueue ? "error" : "warn"}"
                       >${queueCount}</span
+                    >
+                  `
+                : nothing}
+              ${t === "issues" && (healthCount > 0 || this._offline)
+                ? html`
+                    <span class="badge ${this._offline ? "error" : "warn"}"
+                      >${this._offline ? "!" : healthCount}</span
                     >
                   `
                 : nothing}
@@ -653,6 +662,10 @@ export class ArrDashboardCard extends LitElement {
     `;
   }
 
+  private _headerChips(): ("disk" | "queue" | "health")[] {
+    return this.config.show_header_chips ?? [];
+  }
+
   private _renderOfflineBanner() {
     const last = this._state?.last_success;
     const screen = this._layoutTablet ? "G01T" : "G01";
@@ -661,15 +674,15 @@ export class ArrDashboardCard extends LitElement {
         <strong>Can't reach Radarr.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
         Actions are off until it's back. Retrying every 30 s.
         <button class="text" @click=${() => void this._refresh()}>Retry</button>
-        <button class="text" @click=${() => (this._statusOpen = true)}>
-          Status
+        <button class="text" @click=${() => this._switchTab("issues")}>
+          Issues
         </button>
       </div>
     `;
   }
 
   private _renderChips() {
-    const chips = this.config.show_header_chips ?? ["disk", "queue", "health"];
+    const chips = this._headerChips();
     const disk = this._state?.disk_space?.[0];
     const freeGb = disk ? (disk.freeSpace / 1e9).toFixed(1) : "—";
     const healthBad = (this._state?.health?.length ?? 0) > 0;
@@ -724,23 +737,7 @@ export class ArrDashboardCard extends LitElement {
           @input=${(e: Event) =>
             (this._librarySearch = (e.target as HTMLInputElement).value)}
         />
-        <div class="chip-row" role="toolbar" aria-label="Library filters">
-          ${(["all", "missing", "downloaded", "in_queue"] as LibraryChip[]).map(
-            (c) => html`
-              <button
-                class="filter-chip ${this._libraryChip === c ? "active" : ""}"
-                @click=${() => (this._libraryChip = c)}
-              >
-                ${c === "all"
-                  ? "All"
-                  : c === "missing"
-                    ? "Missing"
-                    : c === "downloaded"
-                      ? "Downloaded"
-                      : "In queue"}
-              </button>
-            `,
-          )}
+        <div class="chip-row library-toolbar" role="toolbar" aria-label="Library sort">
           <select
             class="sort-select"
             aria-label="Sort"
@@ -753,26 +750,13 @@ export class ArrDashboardCard extends LitElement {
             <option value="added">Added</option>
             <option value="year">Year</option>
           </select>
-          <button
-            class="filter-chip"
-            aria-label="Toggle grid or list"
-            @click=${() =>
-              (this._libraryView =
-                this._libraryView === "grid" ? "list" : "grid")}
-          >
-            <ha-icon
-              icon=${this._libraryView === "grid"
-                ? "mdi:view-grid"
-                : "mdi:view-list"}
-            ></ha-icon>
-          </button>
         </div>
 
         <div class="library-scroll">
           <div
             data-screen="L05"
-            class="${this._libraryView === "grid" ? "poster-grid" : "list-view"}"
-            style="--arr-cols: ${this._libraryView === "grid" ? this._posterColumns : 1}"
+            class="poster-grid"
+            style="--arr-cols: ${this._posterColumns}"
             role="list"
           >
             ${movies.map((m) => this._libraryItem(m))}
@@ -798,21 +782,6 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private _libraryItem(m: MovieSlim) {
-    if (this._libraryView === "list") {
-      return html`
-        <button
-          class="list-row"
-          role="listitem"
-          @click=${() => void this._openMovieDetail(m)}
-        >
-          <img class="thumb" src=${m.posterUrl ?? ""} alt="" />
-          <span>${m.title} (${m.year})</span>
-          ${m.hasFile
-            ? html`<span class="pill ok">On disk</span>`
-            : html`<span class="pill">Missing</span>`}
-        </button>
-      `;
-    }
     return html`
       <button
         class="poster-btn"
@@ -821,9 +790,20 @@ export class ArrDashboardCard extends LitElement {
         @click=${() => void this._openMovieDetail(m)}
       >
         <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-        <div class="poster-caption">${m.title} (${m.year})</div>
       </button>
     `;
+  }
+
+  private _renderIssues() {
+    if (this._loading) {
+      return html`<div data-screen="I02" class="skeleton-block"></div>`;
+    }
+    return renderIssuesPanel(
+      this._state?.health ?? [],
+      this._state?.disk_space ?? [],
+      this.config,
+      this._offline,
+    );
   }
 
   private _renderDownloading() {

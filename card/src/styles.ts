@@ -484,6 +484,32 @@ export const cardStyles = css`
     min-width: 0;
   }
 
+  .library-toolbar {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .poster-grid .poster-caption {
+    display: none;
+  }
+
+  .issues-pane {
+    padding: 8px 12px 24px;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .issues-pane section {
+    margin-top: 16px;
+  }
+
+  .issues-pane h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
   .with-side-panel .main-pane {
     flex: 1 1 55%;
   }

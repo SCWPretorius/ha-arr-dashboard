@@ -5,6 +5,66 @@ import { profileSummaryLine } from "./profile-summary";
 import type { ArrCardConfig } from "./types";
 import type { DiskItem, HealthItem, QualityProfile, RootFolder } from "./ws";
 
+export function renderIssuesPanel(
+  health: HealthItem[],
+  disks: DiskItem[],
+  config: ArrCardConfig,
+  offline: boolean,
+): TemplateResult {
+  const issueCount = health.filter(
+    (h) => h.type === "warning" || h.type === "error",
+  ).length;
+  const intro = offline
+    ? "Can't reach Radarr right now."
+    : issueCount > 0
+      ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+      : "Everything looks good.";
+  const link = config.external_link;
+  return html`
+    <div class="issues-pane" data-screen="I01">
+      <p class="hint-muted">${intro}</p>
+      <section>
+        <h3>Health</h3>
+        ${health.length
+          ? health.map(
+              (h) => html`
+                <p class="status-line">
+                  <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+                  ${h.source ?? ""} · from Radarr — ${h.message}
+                </p>
+              `,
+            )
+          : html`<p class="hint-muted">No health warnings.</p>`}
+      </section>
+      <section>
+        <h3>Disk space</h3>
+        ${disks.length
+          ? disks.map(
+              (d) => html`
+                <p class="status-line mono">
+                  ${d.path}: ${formatBytes(d.freeSpace)} free of
+                  ${formatBytes(d.totalSpace)}
+                </p>
+              `,
+            )
+          : html`<p class="hint-muted">No disk info.</p>`}
+      </section>
+      ${link
+        ? html`
+            <a
+              class="primary link-button"
+              href=${String(link)}
+              target="_blank"
+              rel="noopener"
+            >
+              Open Radarr
+            </a>
+          `
+        : nothing}
+    </div>
+  `;
+}
+
 export function renderStatusSheet(
   open: boolean,
   health: HealthItem[],

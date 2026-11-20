@@ -5,7 +5,7 @@ export interface HomeAssistant {
   themes?: { darkMode?: boolean };
 }
 
-export type TabId = "add" | "downloading" | "library";
+export type TabId = "add" | "downloading" | "library" | "issues";
 
 export interface ArrCardConfig {
   type: string;
