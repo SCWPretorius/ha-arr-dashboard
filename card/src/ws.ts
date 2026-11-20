@@ -2,7 +2,8 @@ import type { HomeAssistant } from "./types";
 
 export interface ArrState {
   reachable: boolean;
-  movies: MovieSlim[];
+  movies?: MovieSlim[];
+  library_revision?: string;
   queue: { records?: QueueItem[]; totalRecords?: number };
   queue_count: number;
   health: HealthItem[];
@@ -65,6 +66,13 @@ export interface RootFolder {
   id: number;
   path: string;
   freeSpace: number;
+}
+
+export interface LibraryPageResult {
+  total: number;
+  revision: string;
+  offset: number;
+  items: MovieSlim[];
 }
 
 export interface QualityProfile {

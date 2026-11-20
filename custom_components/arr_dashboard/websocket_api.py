@@ -13,6 +13,12 @@ from .const import EVENT_MOVIE_ADDED, WS_TYPE_ARR_DASHBOARD
 from .core.client import ArrNotFound
 from .core.events import movie_event_base
 from .helpers import get_coordinator_for_entry, get_radarr_client
+from .library_logic import (
+    library_match,
+    library_page_slice,
+    library_revision,
+    library_upcoming,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +95,18 @@ async def _handle_command(
                     "health": cd.health,
                     "disk_space": cd.disk_space,
                 }
+            if scope == "core":
+                return {
+                    **base,
+                    "library_revision": library_revision(cd),
+                    "queue": cd.queue,
+                    "queue_count": cd.queue_count,
+                    "health": cd.health,
+                    "disk_space": cd.disk_space,
+                    "root_folders": cd.root_folders,
+                    "quality_profiles": cd.quality_profiles,
+                    "system": cd.system,
+                }
             return {
                 **base,
                 "movies": cd.movies,
@@ -100,6 +118,39 @@ async def _handle_command(
                 "quality_profiles": cd.quality_profiles,
                 "system": cd.system,
             }
+        case "library_page":
+            cd = coordinator.data
+            sort = str(data.get("sort", "title"))
+            search = str(data.get("search", ""))
+            offset = int(data.get("offset", 0))
+            limit = int(data.get("limit", 48))
+            total, items = library_page_slice(
+                cd.movies,
+                offset=offset,
+                limit=limit,
+                sort=sort,
+                search=search,
+            )
+            return {
+                "total": total,
+                "revision": library_revision(cd),
+                "offset": offset,
+                "items": items,
+            }
+        case "library_match":
+            cd = coordinator.data
+            movie = library_match(
+                cd.movies,
+                tmdb_id=data.get("tmdbId"),
+                title=data.get("title"),
+                year=data.get("year"),
+            )
+            return {"movie": movie}
+        case "library_upcoming":
+            cd = coordinator.data
+            days = int(data.get("days", 14))
+            items = library_upcoming(cd.movies, days)
+            return {"items": items, "revision": library_revision(cd)}
         case "lookup":
             return {"results": await client.lookup(data["term"])}
         case "add_movie":

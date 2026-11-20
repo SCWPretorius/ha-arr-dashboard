@@ -267,34 +267,170 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
-  .queue-row {
+  .download-pane {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--divider-color);
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .download-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+    padding: 4px 12px 24px;
+  }
+
+  .download-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 16px 10px;
+  }
+
+  .download-empty {
+    padding: 12px 16px;
+  }
+
+  .queue-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
     position: relative;
-    overflow: hidden;
   }
 
-  .queue-row.exiting {
-    animation: queue-row-exit 200ms ease forwards;
+  .queue-tile.exiting {
+    animation: queue-tile-exit 200ms ease forwards;
   }
 
-  @keyframes queue-row-exit {
+  @keyframes queue-tile-exit {
     to {
       opacity: 0;
-      transform: translateX(-12px);
+      transform: scale(0.96);
       max-height: 0;
-      padding-top: 0;
-      padding-bottom: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .queue-row.exiting {
+    .queue-tile.exiting {
       animation: none;
       opacity: 0;
     }
+  }
+
+  .queue-tile-poster {
+    position: relative;
+    width: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #1a1a1a;
+    aspect-ratio: 2 / 3;
+  }
+
+  .queue-tile-poster img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .queue-tile-poster::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.85) 0%,
+      rgba(0, 0, 0, 0.15) 45%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .queue-tile-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    z-index: 1;
+  }
+
+  .queue-tile-progress .progress-fill {
+    background: #e50914;
+  }
+
+  .queue-tile-status {
+    position: absolute;
+    left: 8px;
+    bottom: 10px;
+    z-index: 2;
+    font-size: 0.72rem;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: none;
+  }
+
+  .queue-tile-overflow {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    line-height: 1;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .queue-tile-title {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e5e5e5;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .queue-tile-meta {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #9a9a9a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .queue-tile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .queue-tile-actions .compact {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+
+  .queue-tile.attention .queue-tile-poster {
+    box-shadow: inset 0 0 0 2px var(--error-color);
+  }
+
+  .queue-tile.attention.warn .queue-tile-poster {
+    box-shadow: inset 0 0 0 2px var(--arr-warn-ui);
   }
 
   .profile-radio-list {
@@ -349,19 +485,6 @@ export const cardStyles = css`
     color: var(--arr-accent-text);
   }
 
-  .queue-row.attention::before {
-    content: "";
-    position: absolute;
-    left: -16px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: var(--error-color);
-  }
-
-  .queue-row.attention.warn::before {
-    background: var(--arr-warn-ui);
-  }
 
   .pill {
     display: inline-flex;
@@ -462,12 +585,46 @@ export const cardStyles = css`
   }
 
   .library-scroll {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     align-self: stretch;
     min-width: 0;
     min-height: 0;
     width: 100%;
+    overflow: hidden;
+  }
+
+  .library-scroll arr-virtual-list.library-virtual {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    height: 100%;
     overflow: auto;
+  }
+
+  .library-scroll arr-virtual-list .viewport,
+  .library-scroll arr-virtual-list .window,
+  .library-scroll arr-virtual-list .spacer {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .library-scroll arr-virtual-list .window {
+    display: block;
+    position: absolute;
+  }
+
+  .library-scroll arr-virtual-list .poster-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 8px;
   }
 
   .poster-grid {

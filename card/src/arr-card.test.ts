@@ -14,6 +14,91 @@ function mockMovies(count: number, allOnDisk = false) {
   }));
 }
 
+function mockLibraryPage(
+  movies: ReturnType<typeof mockMovies>,
+  data: Record<string, unknown>,
+) {
+  let list = movies.filter((m) => m.hasFile);
+  const q = String(data.search ?? "").trim().toLowerCase();
+  if (q) {
+    list = list.filter((m) => m.title.toLowerCase().includes(q));
+  }
+  const sort = String(data.sort ?? "title");
+  if (sort === "added") {
+    list = [...list].sort((a, b) => b.added.localeCompare(a.added));
+  } else if (sort === "year") {
+    list = [...list].sort((a, b) => b.year - a.year);
+  } else {
+    list = [...list].sort((a, b) => a.title.localeCompare(b.title));
+  }
+  const offset = Number(data.offset ?? 0);
+  const limit = Number(data.limit ?? 48);
+  return {
+    total: list.length,
+    offset,
+    revision: "mock:1",
+    items: list.slice(offset, offset + limit),
+  };
+}
+
+function mockArrDashboard(
+  command: string,
+  data: Record<string, unknown>,
+  movieCount = 60,
+  allOnDisk = false,
+) {
+  const movies = mockMovies(movieCount, allOnDisk);
+  const core = {
+    reachable: true,
+    library_revision: "mock:1",
+    queue: {
+      records: [
+        {
+          id: 1,
+          status: "failed",
+          movie: { title: "Fail", year: 2020 },
+          size: 1e9,
+          sizeleft: 5e8,
+        },
+      ],
+      totalRecords: 1,
+    },
+    queue_count: 1,
+    health: [{ source: "test", type: "warning", message: "Disk low" }],
+    disk_space: [{ path: "/movies", freeSpace: 1e12, totalSpace: 2e12 }],
+    root_folders: [{ id: 1, path: "/movies", freeSpace: 1e12 }],
+    quality_profiles: [{ id: 1, name: "HD" }],
+    system: {},
+    last_success: new Date().toISOString(),
+  };
+  switch (command) {
+    case "get_state":
+      if (data.scope === "queue") {
+        return {
+          reachable: core.reachable,
+          queue: core.queue,
+          queue_count: core.queue_count,
+          health: core.health,
+          disk_space: core.disk_space,
+          last_success: core.last_success,
+        };
+      }
+      return core;
+    case "library_page":
+      return mockLibraryPage(movies, data);
+    case "library_upcoming":
+      return {
+        items: movies.filter((m) => (m.status ?? "").includes("Cinemas")),
+      };
+    case "library_match":
+      return { movie: null };
+    case "lookup":
+      return { results: [] };
+    default:
+      return {};
+  }
+}
+
 const mockHass = {
   callWS: async (msg: Record<string, unknown>) => {
     if (msg.type === "config_entries/get") {
@@ -22,32 +107,11 @@ const mockHass = {
     if (msg.type === "auth/sign_path") {
       return { path: `${String(msg.path)}?auth=signed` };
     }
-    if (msg.type === "arr_dashboard" && msg.command === "get_state") {
-      return {
-        reachable: true,
-        movies: mockMovies(60),
-        queue: {
-          records: [
-            {
-              id: 1,
-              status: "failed",
-              movie: { title: "Fail", year: 2020 },
-              size: 1e9,
-              sizeleft: 5e8,
-            },
-          ],
-          totalRecords: 1,
-        },
-        queue_count: 1,
-        health: [{ source: "test", type: "warning", message: "Disk low" }],
-        disk_space: [
-          { path: "/movies", freeSpace: 1e12, totalSpace: 2e12 },
-        ],
-        root_folders: [{ id: 1, path: "/movies", freeSpace: 1e12 }],
-        quality_profiles: [{ id: 1, name: "HD" }],
-        system: {},
-        last_success: new Date().toISOString(),
-      };
+    if (msg.type === "arr_dashboard") {
+      return mockArrDashboard(
+        String(msg.command),
+        (msg.data as Record<string, unknown>) ?? {},
+      );
     }
     return {};
   },
@@ -228,36 +292,30 @@ describe("arr-card library grid", () => {
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 80));
     await el.updateComplete;
-    const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
-    expect(grid).to.exist;
-    expect(grid?.querySelectorAll(".poster-btn").length).to.be.greaterThan(1);
+    const list = el.shadowRoot?.querySelector("arr-virtual-list");
+    expect(list).to.exist;
     expect(el.shadowRoot?.textContent).not.to.contain("Recently added");
-    expect(el.shadowRoot?.querySelector("arr-virtual-list")).to.equal(null);
+    const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
     expect(grid?.querySelector(".poster-caption")).to.equal(null);
     expect(el.shadowRoot?.querySelector(".chip-row .filter-chip")).to.equal(
       null,
     );
   });
 
-  it("keeps grid row layout for 300 movies", async () => {
+  it("lazy-loads library pages instead of mounting every movie", async () => {
     const el = document.createElement("arr-card") as ArrDashboardCard;
     el.hass = {
       callWS: async (msg: Record<string, unknown>) => {
         if (msg.type === "config_entries/get") {
           return [{ entry_id: "abc", domain: "arr_dashboard", title: "Radarr" }];
         }
-        if (msg.type === "arr_dashboard" && msg.command === "get_state") {
-          return {
-            reachable: true,
-            movies: mockMovies(300, true),
-            queue: { records: [], totalRecords: 0 },
-            queue_count: 0,
-            health: [],
-            disk_space: [],
-            root_folders: [],
-            quality_profiles: [],
-            system: {},
-          };
+        if (msg.type === "arr_dashboard") {
+          return mockArrDashboard(
+            String(msg.command),
+            (msg.data as Record<string, unknown>) ?? {},
+            300,
+            true,
+          );
         }
         return {};
       },
@@ -266,15 +324,18 @@ describe("arr-card library grid", () => {
       type: "custom:arr-card",
       tabs: ["library"],
       default_tab: "library",
-      library_view: "grid",
     });
     document.body.appendChild(el);
     await el.updateComplete;
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 150));
     await el.updateComplete;
-    const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
-    expect(grid).to.exist;
-    expect(grid?.querySelectorAll(".poster-btn").length).to.equal(300);
+    const internal = el as unknown as {
+      _libraryItems: { length: number };
+      _libraryTotal: number;
+    };
+    expect(internal._libraryTotal).to.equal(300);
+    expect(internal._libraryItems.length).to.be.lessThan(300);
+    expect(el.shadowRoot?.querySelector("arr-virtual-list")).to.exist;
   });
 });
 

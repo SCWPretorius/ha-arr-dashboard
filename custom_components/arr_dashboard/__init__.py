@@ -7,7 +7,6 @@ import logging
 from datetime import timedelta
 from pathlib import Path
 
-from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (

@@ -337,51 +337,6 @@ function queueStatusLabel(row) {
     return st;
 }
 
-function inLibrary(movies, hit) {
-    if (hit.tmdbId) {
-        const m = movies.find((x) => x.tmdbId === hit.tmdbId);
-        if (m)
-            return m;
-    }
-    const t = (hit.title ?? "").toLowerCase();
-    return movies.find((x) => x.title?.toLowerCase() === t && x.year === hit.year);
-}
-function filterMovies(movies, chip, search, queue) {
-    let list = [...movies];
-    const q = search.trim().toLowerCase();
-    if (q) {
-        list = list.filter((m) => m.title?.toLowerCase().includes(q));
-    }
-    {
-        list = list.filter((m) => m.hasFile);
-    }
-    return list;
-}
-function sortMovies(movies, sort) {
-    const list = [...movies];
-    switch (sort) {
-        case "added":
-            list.sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""));
-            break;
-        case "year":
-            list.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
-            break;
-        case "title":
-        default:
-            list.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", undefined, {
-                sensitivity: "base",
-            }));
-            break;
-    }
-    return list;
-}
-function upcomingMovies(movies, _days) {
-    return movies.filter((m) => {
-        const st = (m.status ?? "").toLowerCase();
-        return st === "incinemas" || st === "announced" || st === "in cinemas";
-    }).slice(0, 12);
-}
-
 const EXIT_MS = 200;
 function prefersReducedMotion() {
     return (typeof window !== "undefined" &&
@@ -1090,34 +1045,170 @@ const cardStyles = i$3 `
     text-overflow: ellipsis;
   }
 
-  .queue-row {
+  .download-pane {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--divider-color);
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .download-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+    padding: 4px 12px 24px;
+  }
+
+  .download-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 16px 10px;
+  }
+
+  .download-empty {
+    padding: 12px 16px;
+  }
+
+  .queue-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
     position: relative;
-    overflow: hidden;
   }
 
-  .queue-row.exiting {
-    animation: queue-row-exit 200ms ease forwards;
+  .queue-tile.exiting {
+    animation: queue-tile-exit 200ms ease forwards;
   }
 
-  @keyframes queue-row-exit {
+  @keyframes queue-tile-exit {
     to {
       opacity: 0;
-      transform: translateX(-12px);
+      transform: scale(0.96);
       max-height: 0;
-      padding-top: 0;
-      padding-bottom: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .queue-row.exiting {
+    .queue-tile.exiting {
       animation: none;
       opacity: 0;
     }
+  }
+
+  .queue-tile-poster {
+    position: relative;
+    width: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #1a1a1a;
+    aspect-ratio: 2 / 3;
+  }
+
+  .queue-tile-poster img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .queue-tile-poster::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.85) 0%,
+      rgba(0, 0, 0, 0.15) 45%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .queue-tile-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    z-index: 1;
+  }
+
+  .queue-tile-progress .progress-fill {
+    background: #e50914;
+  }
+
+  .queue-tile-status {
+    position: absolute;
+    left: 8px;
+    bottom: 10px;
+    z-index: 2;
+    font-size: 0.72rem;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: none;
+  }
+
+  .queue-tile-overflow {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    line-height: 1;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .queue-tile-title {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e5e5e5;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .queue-tile-meta {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #9a9a9a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .queue-tile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .queue-tile-actions .compact {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+
+  .queue-tile.attention .queue-tile-poster {
+    box-shadow: inset 0 0 0 2px var(--error-color);
+  }
+
+  .queue-tile.attention.warn .queue-tile-poster {
+    box-shadow: inset 0 0 0 2px var(--arr-warn-ui);
   }
 
   .profile-radio-list {
@@ -1172,19 +1263,6 @@ const cardStyles = i$3 `
     color: var(--arr-accent-text);
   }
 
-  .queue-row.attention::before {
-    content: "";
-    position: absolute;
-    left: -16px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: var(--error-color);
-  }
-
-  .queue-row.attention.warn::before {
-    background: var(--arr-warn-ui);
-  }
 
   .pill {
     display: inline-flex;
@@ -1285,12 +1363,46 @@ const cardStyles = i$3 `
   }
 
   .library-scroll {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     align-self: stretch;
     min-width: 0;
     min-height: 0;
     width: 100%;
+    overflow: hidden;
+  }
+
+  .library-scroll arr-virtual-list.library-virtual {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    height: 100%;
     overflow: auto;
+  }
+
+  .library-scroll arr-virtual-list .viewport,
+  .library-scroll arr-virtual-list .window,
+  .library-scroll arr-virtual-list .spacer {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .library-scroll arr-virtual-list .window {
+    display: block;
+    position: absolute;
+  }
+
+  .library-scroll arr-virtual-list .poster-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 8px;
   }
 
   .poster-grid {
@@ -2127,6 +2239,7 @@ __decorate([
 defineElement("arr-card-editor", ArrCardEditor);
 
 const LOOKUP_DEBOUNCE_MS = 400;
+const LIBRARY_SEARCH_DEBOUNCE_MS = 300;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
 function queueNeedsAttention(item) {
     const st = (item.status || "").toLowerCase();
@@ -2155,13 +2268,19 @@ class ArrDashboardCard extends i {
         this._addBusy = false;
         this._librarySearch = "";
         this._librarySort = "title";
+        this._libraryItems = [];
+        this._libraryTotal = 0;
+        this._libraryLoading = false;
+        this._libraryLoadingMore = false;
+        this._addUpcoming = [];
+        this._lookupLib = {};
+        this._queuePosters = {};
         this._compact = false;
         this._hostWidth = 0;
         this._statusOpen = false;
         this._failureDetail = "";
         this._qualityOpen = false;
         this._qualitySearch = true;
-        this._showAllDownloads = false;
         this._releases = [];
         this._showRejected = false;
         this._releaseBusy = false;
@@ -2170,11 +2289,21 @@ class ArrDashboardCard extends i {
         this._qualityBusy = false;
         this._searchAgainBusy = false;
         this._grabOkScreen = false;
+        this._libraryLoadGen = 0;
         this._failCount = 0;
         this._releaseCache = new Map();
         this._lastFullRefresh = 0;
         this._pageVisible = true;
         this._fullRefreshMs = 5 * 60 * 1000;
+        this._libraryRowRender = (startIndex, count) => {
+            const nodes = [];
+            for (let i = 0; i < count; i++) {
+                const m = this._libraryItems[startIndex + i];
+                if (m)
+                    nodes.push(this._libraryItem(m));
+            }
+            return nodes;
+        };
     }
     setConfig(config) {
         if (!config.type) {
@@ -2234,8 +2363,17 @@ class ArrDashboardCard extends i {
             clearInterval(this._refreshTimer);
         if (this._lookupTimer)
             clearTimeout(this._lookupTimer);
+        if (this._librarySearchTimer)
+            clearTimeout(this._librarySearchTimer);
         if (this._onVisibility) {
             document.removeEventListener("visibilitychange", this._onVisibility);
+        }
+    }
+    updated(changed) {
+        if (changed.has("_tab") &&
+            this._tab !== "library" &&
+            (this._selectedMovie || this._manualMovieId)) {
+            this._closeMovieDetail();
         }
     }
     async _bootstrap() {
@@ -2274,7 +2412,10 @@ class ArrDashboardCard extends i {
         const queueOnly = this._tab === "downloading" &&
             Date.now() - this._lastFullRefresh < this._fullRefreshMs;
         try {
-            const data = (await callArr(this.hass, this._entryId, "get_state", queueOnly ? { scope: "queue" } : undefined));
+            const scope = queueOnly ? "queue" : "core";
+            const data = (await callArr(this.hass, this._entryId, "get_state", {
+                scope,
+            }));
             const wasOff = this._offline;
             if (queueOnly && this._state) {
                 this._state = {
@@ -2288,9 +2429,17 @@ class ArrDashboardCard extends i {
                 };
             }
             else {
-                await this._signMoviePosters(data.movies ?? []);
-                this._state = data;
+                const prevRev = this._state?.library_revision;
+                this._state = { ...data };
                 this._lastFullRefresh = Date.now();
+                if (data.library_revision &&
+                    data.library_revision !== prevRev &&
+                    this._tab === "library") {
+                    void this._resetLibrary();
+                }
+                if (this._tab === "add") {
+                    void this._loadAddUpcoming();
+                }
             }
             this._failCount = 0;
             if (!data.reachable)
@@ -2304,6 +2453,12 @@ class ArrDashboardCard extends i {
         }
         finally {
             this._loading = false;
+            if (this._tab === "library" &&
+                !this._libraryItems.length &&
+                !this._libraryLoading) {
+                void this._resetLibrary();
+            }
+            void this._hydrateQueuePosters();
         }
     }
     async _signMoviePosters(movies) {
@@ -2315,6 +2470,33 @@ class ArrDashboardCard extends i {
                 m.posterUrl = await signPosterPath(this.hass, url);
             }
         }));
+    }
+    _queuePosterPath(row) {
+        const movieId = row.movie?.id;
+        if (!movieId || !this._entryId)
+            return "";
+        return `/api/arr_dashboard/${this._entryId}/poster/${movieId}`;
+    }
+    async _hydrateQueuePosters() {
+        if (!this.hass || !this._entryId)
+            return;
+        const rows = this._queueRecords();
+        const next = { ...this._queuePosters };
+        let changed = false;
+        await Promise.all(rows.map(async (row) => {
+            const movieId = row.movie?.id;
+            if (!movieId || next[movieId])
+                return;
+            const path = this._queuePosterPath(row);
+            if (!path)
+                return;
+            next[movieId] = path.startsWith("/api/arr_dashboard")
+                ? await signPosterPath(this.hass, path)
+                : path;
+            changed = true;
+        }));
+        if (changed)
+            this._queuePosters = next;
     }
     /** UI-only; the integration still accepts every websocket command (§2.2). */
     get _hideDestructive() {
@@ -2336,15 +2518,123 @@ class ArrDashboardCard extends i {
             throw new Error("No instance");
         return callArr(this.hass, this._entryId, command, data);
     }
+    _closeMovieDetail() {
+        this._selectedMovie = undefined;
+        this._detailExtra = undefined;
+        this._qualityOpen = false;
+        this._manualMovieId = undefined;
+    }
     _switchTab(tab) {
+        const prev = this._tab;
         this._tab = tab;
+        if (tab !== prev) {
+            this._closeMovieDetail();
+        }
+        if (tab === "library") {
+            void this._resetLibrary();
+        }
+        if (tab === "add") {
+            void this._loadAddUpcoming();
+        }
         this._schedulePoll();
     }
-    _sortedLibrary() {
-        const movies = this._state?.movies ?? [];
-        this._state?.queue?.records ?? [];
-        const filtered = filterMovies(movies, "downloaded", this._librarySearch);
-        return sortMovies(filtered, this._librarySort);
+    _libraryPageLimit() {
+        return Math.max(24, this._posterColumns * 8);
+    }
+    get _posterRowHeight() {
+        const width = this._hostWidth || 900;
+        const colW = width / this._posterColumns;
+        return Math.ceil(colW * (3 / 2) + 12);
+    }
+    async _resetLibrary() {
+        if (!this._entryId || !this.hass)
+            return;
+        const gen = ++this._libraryLoadGen;
+        this._libraryLoading = true;
+        try {
+            const page = (await this._ws("library_page", {
+                offset: 0,
+                limit: this._libraryPageLimit(),
+                sort: this._librarySort,
+                search: this._librarySearch,
+            }));
+            if (gen !== this._libraryLoadGen)
+                return;
+            await this._signMoviePosters(page.items);
+            if (gen !== this._libraryLoadGen)
+                return;
+            this._libraryItems = page.items;
+            this._libraryTotal = page.total;
+        }
+        finally {
+            if (gen === this._libraryLoadGen)
+                this._libraryLoading = false;
+        }
+    }
+    async _loadMoreLibrary() {
+        if (!this._entryId ||
+            this._libraryLoadingMore ||
+            this._libraryLoading ||
+            this._libraryItems.length >= this._libraryTotal) {
+            return;
+        }
+        this._libraryLoadingMore = true;
+        const offset = this._libraryItems.length;
+        try {
+            const page = (await this._ws("library_page", {
+                offset,
+                limit: this._libraryPageLimit(),
+                sort: this._librarySort,
+                search: this._librarySearch,
+            }));
+            await this._signMoviePosters(page.items);
+            this._libraryItems = [...this._libraryItems, ...page.items];
+            this._libraryTotal = page.total;
+        }
+        finally {
+            this._libraryLoadingMore = false;
+        }
+    }
+    _onLibraryScroll(e) {
+        const el = e.currentTarget;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) {
+            void this._loadMoreLibrary();
+        }
+    }
+    async _loadAddUpcoming() {
+        if (!this._entryId)
+            return;
+        try {
+            const res = (await this._ws("library_upcoming", {
+                days: this.config.upcoming_days ?? 30,
+            }));
+            await this._signMoviePosters(res.items);
+            this._addUpcoming = res.items;
+        }
+        catch {
+            this._addUpcoming = [];
+        }
+    }
+    async _refreshLookupLibraryFlags() {
+        if (!this._entryId || !this._lookupResults.length) {
+            this._lookupLib = {};
+            return;
+        }
+        const next = {};
+        await Promise.all(this._lookupResults.map(async (r) => {
+            const key = String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
+            const res = (await this._ws("library_match", {
+                tmdbId: r.tmdbId,
+                title: r.title,
+                year: r.year,
+            }));
+            if (res.movie)
+                next[key] = res.movie;
+        }));
+        this._lookupLib = next;
+    }
+    _lookupLibKey(r) {
+        return String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
     }
     _queueRecords() {
         const rec = this._state?.queue?.records ?? [];
@@ -2361,6 +2651,7 @@ class ArrDashboardCard extends i {
         if (q.length < 2) {
             this._addPhase = "start";
             this._lookupResults = [];
+            this._lookupLib = {};
             this._addError = "";
             return;
         }
@@ -2376,6 +2667,7 @@ class ArrDashboardCard extends i {
             this._lookupResults = res.results?.slice(0, 25) ?? [];
             this._addPhase = this._lookupResults.length ? "results" : "no_results";
             this._addError = "";
+            await this._refreshLookupLibraryFlags();
         }
         catch (err) {
             this._addPhase = "error";
@@ -2515,7 +2807,9 @@ class ArrDashboardCard extends i {
           ${sideDetail ? this._renderDetailPanel() : A}
         </div>
 
-        ${!sideDetail && this._selectedMovie ? this._renderDetailDialog() : A}
+        ${!sideDetail && this._tab === "library" && this._selectedMovie
+            ? this._renderDetailDialog()
+            : A}
         ${this._manualMovieId ? this._renderManualSearch() : A}
         ${this._grabOkScreen
             ? b `<span hidden data-screen="M07" aria-hidden="true"></span>`
@@ -2663,10 +2957,9 @@ class ArrDashboardCard extends i {
     `;
     }
     _renderLibrary() {
-        if (this._loading) {
+        if (this._loading || (this._libraryLoading && !this._libraryItems.length)) {
             return b `<div data-screen="L04" class="skeleton-block"></div>`;
         }
-        const movies = this._sortedLibrary();
         return b `
       <div data-screen="L01" class="library-pane">
         <input
@@ -2674,15 +2967,24 @@ class ArrDashboardCard extends i {
           placeholder="Search your library"
           aria-label="Search your library"
           .value=${this._librarySearch}
-          @input=${(e) => (this._librarySearch = e.target.value)}
+          @input=${(e) => {
+            this._librarySearch = e.target.value;
+            if (this._librarySearchTimer) {
+                clearTimeout(this._librarySearchTimer);
+            }
+            this._librarySearchTimer = setTimeout(() => void this._resetLibrary(), LIBRARY_SEARCH_DEBOUNCE_MS);
+        }}
         />
         <div class="chip-row library-toolbar" role="toolbar" aria-label="Library sort">
           <select
             class="sort-select"
             aria-label="Sort"
             .value=${this._librarySort}
-            @change=${(e) => (this._librarySort = e.target
-            .value)}
+            @change=${(e) => {
+            this._librarySort = e.target
+                .value;
+            void this._resetLibrary();
+        }}
           >
             <option value="title">Title</option>
             <option value="added">Added</option>
@@ -2691,18 +2993,25 @@ class ArrDashboardCard extends i {
         </div>
 
         <div class="library-scroll">
-          <div
-            data-screen="L05"
-            class="poster-grid"
-            style="--arr-cols: ${this._posterColumns}"
-            role="list"
-          >
-            ${movies.map((m) => this._libraryItem(m))}
-          </div>
-        </div>
-        ${!movies.length
-            ? b `<p>No movies match your filters.</p>`
+          ${this._libraryItems.length
+            ? b `
+                <arr-virtual-list
+                  data-screen="L05"
+                  class="library-virtual"
+                  style="--arr-cols: ${this._posterColumns}; --arr-virtual-height: 100%"
+                  .itemCount=${this._libraryItems.length}
+                  .columns=${this._posterColumns}
+                  .itemHeight=${this._posterRowHeight}
+                  rowClass="poster-grid"
+                  .renderRow=${this._libraryRowRender}
+                  @scroll=${this._onLibraryScroll}
+                ></arr-virtual-list>
+              `
+            : b `<p>No movies match your filters.</p>`}
+          ${this._libraryLoadingMore
+            ? b `<p class="hint-muted">Loading more…</p>`
             : A}
+        </div>
       </div>
     `;
     }
@@ -2737,42 +3046,37 @@ class ArrDashboardCard extends i {
     }
     _renderDownloading() {
         if (this._loading && !this._state?.queue) {
-            return b `<div data-screen="D05" class="skeleton-list" aria-busy="true"></div>`;
+            return b `<div data-screen="D05" class="skeleton-block"></div>`;
         }
         const rows = this._queueRecords();
         if (!rows.length) {
             return b `
-        <div data-screen="D02">
+        <div data-screen="D02" class="download-empty">
           <p>
             <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
           </p>
           <p class="hint-muted">
-            New downloads show up here with progress and time left.
+            Active downloads will appear here as poster tiles.
           </p>
         </div>
       `;
         }
-        const limit = this._compact && !this._showAllDownloads ? 3 : rows.length;
-        const visible = rows.slice(0, limit);
         const listScreen = this._layoutTablet ? "D01T" : "D01";
         return b `
-      <div data-screen=${listScreen} role="list">
-        ${visible.map((row) => this._renderQueueRow(row))}
+      <div data-screen=${listScreen} class="download-pane">
+        <div class="download-scroll">
+          <div
+            class="download-grid"
+            style="--arr-cols: ${this._posterColumns}"
+            role="list"
+          >
+            ${rows.map((row) => this._renderQueueTile(row))}
+          </div>
+        </div>
       </div>
-      ${this._compact && rows.length > 3 && !this._showAllDownloads
-            ? b `
-            <button
-              class="text"
-              data-screen="G04"
-              @click=${() => (this._showAllDownloads = true)}
-            >
-              Show all ${rows.length} downloads
-            </button>
-          `
-            : A}
     `;
     }
-    _renderQueueRow(row) {
+    _renderQueueTile(row) {
         const title = row.movie?.title ?? row.title ?? "Download";
         const failed = (row.status || "").toLowerCase() === "failed";
         const importAttn = (row.trackedDownloadStatus || "")
@@ -2781,92 +3085,101 @@ class ArrDashboardCard extends i {
         const hide = this._hideDestructive;
         const pct = queueProgress(row);
         const exiting = this._exitingQueueIds.includes(row.id);
+        const movieId = row.movie?.id;
+        const poster = movieId ? this._queuePosters[movieId] ?? "" : "";
+        const metaLine = [
+            row.quality?.quality?.name,
+            row.size ? formatBytes(row.size) : "",
+            row.timeleft,
+        ]
+            .filter(Boolean)
+            .join(" · ");
         return b `
-      <div
-        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
+      <article
+        class="queue-tile ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
         role="listitem"
         data-screen=${exiting ? "D06" : A}
+        aria-label=${`${title}, ${queueStatusLabel(row)}`}
       >
-        <div class="queue-main">
-          <strong>${title}</strong>
-          <span class="pill ${failed ? "failed" : ""}"
-            >${queueStatusLabel(row)}</span
-          >
+        <div class="queue-tile-poster">
+          <img src=${poster} alt="" loading="lazy" />
           <div
-            class="progress-bar"
+            class="queue-tile-progress"
             role="progressbar"
-            aria-label="${title} progress"
             aria-valuenow=${pct}
             aria-valuemin="0"
             aria-valuemax="100"
+            aria-label="${title} progress"
           >
             <div class="progress-fill" style="width: ${pct}%"></div>
           </div>
-          <div class="queue-meta mono">
-            ${row.quality?.quality?.name ?? ""}
-            ${row.size ? ` · ${formatBytes(row.size)}` : ""}
-            ${row.timeleft ? ` · ${row.timeleft}` : ""}
-          </div>
-          <div class="queue-actions">
-            ${!hide
+          <span class="queue-tile-status pill ${failed ? "failed" : ""}"
+            >${queueStatusLabel(row)}</span
+          >
+          ${!hide
+            ? b `<button
+                class="queue-tile-overflow"
+                aria-label="More actions for ${title}"
+                data-screen="D03"
+                @click=${() => (this._queueOverflow = row)}
+              >
+                ⋮
+              </button>`
+            : A}
+        </div>
+        <p class="queue-tile-title">${title}</p>
+        ${metaLine
+            ? b `<p class="queue-tile-meta">${metaLine}</p>`
+            : A}
+        <div class="queue-tile-actions">
+          ${!hide
             ? b `
-                  ${failed || row.trackedDownloadStatus === "warning"
+                ${failed || row.trackedDownloadStatus === "warning"
                 ? b `<button
-                        class="outline-danger"
-                        data-action="remove-search-again"
-                        data-qid=${row.id}
-                        ?disabled=${this._offline}
-                        @click=${() => void this._removeSearchAgain(row.id, title)}
-                      >
-                        Remove & search again
-                      </button>`
+                      class="outline-danger compact"
+                      data-action="remove-search-again"
+                      data-qid=${row.id}
+                      ?disabled=${this._offline}
+                      @click=${() => void this._removeSearchAgain(row.id, title)}
+                    >
+                      Remove & search again
+                    </button>`
                 : A}
-                  ${failed
+                ${failed
                 ? b `<button
-                        class="outline-danger"
-                        data-action="queue-remove"
-                        data-qid=${row.id}
-                        ?disabled=${this._offline}
-                        @click=${() => this._openConfirm("d04b", {
+                      class="outline-danger compact"
+                      data-action="queue-remove"
+                      data-qid=${row.id}
+                      ?disabled=${this._offline}
+                      @click=${() => this._openConfirm("d04b", {
                     title,
                     queue_id: row.id,
                 })}
-                      >
-                        Remove
-                      </button>`
+                    >
+                      Remove
+                    </button>`
                 : A}
-                `
+              `
             : b `
-                  ${queueNeedsAttention(row)
+                ${queueNeedsAttention(row)
                 ? b `<p class="hint-muted" data-screen="D07T">
-                        <ha-icon icon="mdi:information-outline"></ha-icon>
-                        Removing is turned off on this dashboard.
-                      </p>`
+                      <ha-icon icon="mdi:information-outline"></ha-icon>
+                      Removing is turned off on this dashboard.
+                    </p>`
                 : A}
-                `}
-            ${importAttn && row.outputPath
+              `}
+          ${importAttn && row.outputPath
             ? b `<button
-                  class="primary"
-                  data-action="retry-import"
-                  ?disabled=${this._offline}
-                  @click=${() => void this._retryImport(row)}
-                >
-                  Retry import
-                </button>`
+                class="primary compact"
+                data-action="retry-import"
+                ?disabled=${this._offline}
+                @click=${() => void this._retryImport(row)}
+              >
+                Retry import
+              </button>`
             : A}
-          </div>
         </div>
-        ${!hide
-            ? b `<button
-              aria-label="More actions for ${title}"
-              class="text overflow-btn"
-              data-screen="D03"
-              @click=${() => (this._queueOverflow = row)}
-            >
-              ⋮
-            </button>`
-            : A}
-      </div>
+      </article>
     `;
     }
     _renderAdd() {
@@ -2883,13 +3196,12 @@ class ArrDashboardCard extends i {
                         : this._addPhase === "error"
                             ? "A07"
                             : "A01";
-        const movies = this._state?.movies ?? [];
         const comingSoon = this._lookupResults.filter((r) => {
             const st = String(r.status ?? r.statusType ?? "").toLowerCase();
             return st.includes("cinemas") || st.includes("announced");
         });
         const libraryUpcoming = this._addPhase === "start" && !this._addQuery.trim()
-            ? upcomingMovies(movies, this.config.upcoming_days ?? 30)
+            ? this._addUpcoming
             : [];
         return b `
       <svg width="0" height="0" aria-hidden="true"></svg>
@@ -2937,7 +3249,7 @@ class ArrDashboardCard extends i {
             : A}
         <div role="list">
           ${this._lookupResults.map((r) => {
-            const lib = inLibrary(movies, r);
+            const lib = this._lookupLib[this._lookupLibKey(r)];
             return b `
               <div class="lookup-row" role="listitem">
                 <strong>${r.title} (${r.year})</strong>
@@ -2991,10 +3303,7 @@ class ArrDashboardCard extends i {
       <div data-screen=${screen}>
       <button
         class="text"
-        @click=${() => {
-            this._selectedMovie = undefined;
-            this._detailExtra = undefined;
-        }}
+        @click=${() => this._closeMovieDetail()}
       >
         ← Back
       </button>
@@ -3520,6 +3829,27 @@ __decorate([
 ], ArrDashboardCard.prototype, "_librarySort", void 0);
 __decorate([
     r()
+], ArrDashboardCard.prototype, "_libraryItems", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryTotal", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryLoading", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryLoadingMore", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addUpcoming", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_lookupLib", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_queuePosters", void 0);
+__decorate([
+    r()
 ], ArrDashboardCard.prototype, "_compact", void 0);
 __decorate([
     r()
@@ -3539,9 +3869,6 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_queueOverflow", void 0);
-__decorate([
-    r()
-], ArrDashboardCard.prototype, "_showAllDownloads", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_manualMovieId", void 0);

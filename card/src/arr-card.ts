@@ -1,16 +1,11 @@
 import { LitElement, html, nothing } from "lit";
 import { ifDefined } from "lit/directives/if-defined.js";
+import type { PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import { defineElement } from "./define-element";
 import { renderConfirmDialog } from "./confirm-dialog";
 import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
-import {
-  filterMovies,
-  inLibrary,
-  sortMovies,
-  upcomingMovies,
-  type LibrarySort,
-} from "./library-logic";
+import type { LibrarySort } from "./library-logic";
 import { animateQueueRowExit } from "./queue-motion";
 import {
   releaseQualityName,
@@ -57,11 +52,13 @@ import {
   resolveEntryId,
   signPosterPath,
   type ArrState,
+  type LibraryPageResult,
   type MovieSlim,
   type QueueItem,
 } from "./ws";
 
 const LOOKUP_DEBOUNCE_MS = 400;
+const LIBRARY_SEARCH_DEBOUNCE_MS = 300;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
 function queueNeedsAttention(item: QueueItem): boolean {
   const st = (item.status || "").toLowerCase();
@@ -104,6 +101,13 @@ export class ArrDashboardCard extends LitElement {
   @state() private _detailExtra?: Record<string, unknown>;
   @state() private _librarySearch = "";
   @state() private _librarySort: LibrarySort = "title";
+  @state() private _libraryItems: MovieSlim[] = [];
+  @state() private _libraryTotal = 0;
+  @state() private _libraryLoading = false;
+  @state() private _libraryLoadingMore = false;
+  @state() private _addUpcoming: MovieSlim[] = [];
+  @state() private _lookupLib: Record<string, MovieSlim> = {};
+  @state() private _queuePosters: Record<number, string> = {};
   @state() private _compact = false;
   @state() private _hostWidth = 0;
   @state() private _statusOpen = false;
@@ -111,7 +115,6 @@ export class ArrDashboardCard extends LitElement {
   @state() private _qualityOpen = false;
   @state() private _qualitySearch = true;
   @state() private _queueOverflow?: QueueItem;
-  @state() private _showAllDownloads = false;
   @state() private _manualMovieId?: number;
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
@@ -125,6 +128,8 @@ export class ArrDashboardCard extends LitElement {
 
   private _refreshTimer?: ReturnType<typeof setInterval>;
   private _lookupTimer?: ReturnType<typeof setTimeout>;
+  private _librarySearchTimer?: ReturnType<typeof setTimeout>;
+  private _libraryLoadGen = 0;
   private _failCount = 0;
   private _releaseCache = new Map<
     number,
@@ -191,8 +196,19 @@ export class ArrDashboardCard extends LitElement {
     this._ro?.disconnect();
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     if (this._lookupTimer) clearTimeout(this._lookupTimer);
+    if (this._librarySearchTimer) clearTimeout(this._librarySearchTimer);
     if (this._onVisibility) {
       document.removeEventListener("visibilitychange", this._onVisibility);
+    }
+  }
+
+  protected updated(changed: PropertyValues): void {
+    if (
+      changed.has("_tab") &&
+      this._tab !== "library" &&
+      (this._selectedMovie || this._manualMovieId)
+    ) {
+      this._closeMovieDetail();
     }
   }
 
@@ -234,12 +250,10 @@ export class ArrDashboardCard extends LitElement {
       this._tab === "downloading" &&
       Date.now() - this._lastFullRefresh < this._fullRefreshMs;
     try {
-      const data = (await callArr(
-        this.hass,
-        this._entryId,
-        "get_state",
-        queueOnly ? { scope: "queue" } : undefined,
-      )) as ArrState;
+      const scope = queueOnly ? "queue" : "core";
+      const data = (await callArr(this.hass, this._entryId, "get_state", {
+        scope,
+      })) as ArrState;
       const wasOff = this._offline;
       if (queueOnly && this._state) {
         this._state = {
@@ -252,9 +266,19 @@ export class ArrDashboardCard extends LitElement {
           last_success: data.last_success,
         };
       } else {
-        await this._signMoviePosters(data.movies ?? []);
-        this._state = data;
+        const prevRev = this._state?.library_revision;
+        this._state = { ...data };
         this._lastFullRefresh = Date.now();
+        if (
+          data.library_revision &&
+          data.library_revision !== prevRev &&
+          this._tab === "library"
+        ) {
+          void this._resetLibrary();
+        }
+        if (this._tab === "add") {
+          void this._loadAddUpcoming();
+        }
       }
       this._failCount = 0;
       if (!data.reachable) this._failCount = 3;
@@ -265,6 +289,14 @@ export class ArrDashboardCard extends LitElement {
       this._failCount += 1;
     } finally {
       this._loading = false;
+      if (
+        this._tab === "library" &&
+        !this._libraryItems.length &&
+        !this._libraryLoading
+      ) {
+        void this._resetLibrary();
+      }
+      void this._hydrateQueuePosters();
     }
   }
 
@@ -278,6 +310,32 @@ export class ArrDashboardCard extends LitElement {
         }
       }),
     );
+  }
+
+  private _queuePosterPath(row: QueueItem): string {
+    const movieId = row.movie?.id;
+    if (!movieId || !this._entryId) return "";
+    return `/api/arr_dashboard/${this._entryId}/poster/${movieId}`;
+  }
+
+  private async _hydrateQueuePosters(): Promise<void> {
+    if (!this.hass || !this._entryId) return;
+    const rows = this._queueRecords();
+    const next = { ...this._queuePosters };
+    let changed = false;
+    await Promise.all(
+      rows.map(async (row) => {
+        const movieId = row.movie?.id;
+        if (!movieId || next[movieId]) return;
+        const path = this._queuePosterPath(row);
+        if (!path) return;
+        next[movieId] = path.startsWith("/api/arr_dashboard")
+          ? await signPosterPath(this.hass, path)
+          : path;
+        changed = true;
+      }),
+    );
+    if (changed) this._queuePosters = next;
   }
 
   /** UI-only; the integration still accepts every websocket command (§2.2). */
@@ -304,21 +362,138 @@ export class ArrDashboardCard extends LitElement {
     return callArr(this.hass, this._entryId, command, data);
   }
 
+  private _closeMovieDetail(): void {
+    this._selectedMovie = undefined;
+    this._detailExtra = undefined;
+    this._qualityOpen = false;
+    this._manualMovieId = undefined;
+  }
+
   private _switchTab(tab: TabId): void {
+    const prev = this._tab;
     this._tab = tab;
+    if (tab !== prev) {
+      this._closeMovieDetail();
+    }
+    if (tab === "library") {
+      void this._resetLibrary();
+    }
+    if (tab === "add") {
+      void this._loadAddUpcoming();
+    }
     this._schedulePoll();
   }
 
-  private _sortedLibrary(): MovieSlim[] {
-    const movies = this._state?.movies ?? [];
-  const queue = this._state?.queue?.records ?? [];
-    const filtered = filterMovies(
-      movies,
-      "downloaded",
-      this._librarySearch,
-      queue,
+  private _libraryPageLimit(): number {
+    return Math.max(24, this._posterColumns * 8);
+  }
+
+  private get _posterRowHeight(): number {
+    const width = this._hostWidth || 900;
+    const colW = width / this._posterColumns;
+    return Math.ceil(colW * (3 / 2) + 12);
+  }
+
+  private async _resetLibrary(): Promise<void> {
+    if (!this._entryId || !this.hass) return;
+    const gen = ++this._libraryLoadGen;
+    this._libraryLoading = true;
+    try {
+      const page = (await this._ws("library_page", {
+        offset: 0,
+        limit: this._libraryPageLimit(),
+        sort: this._librarySort,
+        search: this._librarySearch,
+      })) as LibraryPageResult;
+      if (gen !== this._libraryLoadGen) return;
+      await this._signMoviePosters(page.items);
+      if (gen !== this._libraryLoadGen) return;
+      this._libraryItems = page.items;
+      this._libraryTotal = page.total;
+    } finally {
+      if (gen === this._libraryLoadGen) this._libraryLoading = false;
+    }
+  }
+
+  private async _loadMoreLibrary(): Promise<void> {
+    if (
+      !this._entryId ||
+      this._libraryLoadingMore ||
+      this._libraryLoading ||
+      this._libraryItems.length >= this._libraryTotal
+    ) {
+      return;
+    }
+    this._libraryLoadingMore = true;
+    const offset = this._libraryItems.length;
+    try {
+      const page = (await this._ws("library_page", {
+        offset,
+        limit: this._libraryPageLimit(),
+        sort: this._librarySort,
+        search: this._librarySearch,
+      })) as LibraryPageResult;
+      await this._signMoviePosters(page.items);
+      this._libraryItems = [...this._libraryItems, ...page.items];
+      this._libraryTotal = page.total;
+    } finally {
+      this._libraryLoadingMore = false;
+    }
+  }
+
+  private _onLibraryScroll(e: Event): void {
+    const el = e.currentTarget as HTMLElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) {
+      void this._loadMoreLibrary();
+    }
+  }
+
+  private _libraryRowRender = (startIndex: number, count: number) => {
+    const nodes = [];
+    for (let i = 0; i < count; i++) {
+      const m = this._libraryItems[startIndex + i];
+      if (m) nodes.push(this._libraryItem(m));
+    }
+    return nodes;
+  };
+
+  private async _loadAddUpcoming(): Promise<void> {
+    if (!this._entryId) return;
+    try {
+      const res = (await this._ws("library_upcoming", {
+        days: this.config.upcoming_days ?? 30,
+      })) as { items: MovieSlim[] };
+      await this._signMoviePosters(res.items);
+      this._addUpcoming = res.items;
+    } catch {
+      this._addUpcoming = [];
+    }
+  }
+
+  private async _refreshLookupLibraryFlags(): Promise<void> {
+    if (!this._entryId || !this._lookupResults.length) {
+      this._lookupLib = {};
+      return;
+    }
+    const next: Record<string, MovieSlim> = {};
+    await Promise.all(
+      this._lookupResults.map(async (r) => {
+        const key = String(
+          r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`,
+        );
+        const res = (await this._ws("library_match", {
+          tmdbId: r.tmdbId,
+          title: r.title,
+          year: r.year,
+        })) as { movie?: MovieSlim | null };
+        if (res.movie) next[key] = res.movie;
+      }),
     );
-    return sortMovies(filtered, this._librarySort);
+    this._lookupLib = next;
+  }
+
+  private _lookupLibKey(r: Record<string, unknown>): string {
+    return String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
   }
 
   private _queueRecords(): QueueItem[] {
@@ -336,6 +511,7 @@ export class ArrDashboardCard extends LitElement {
     if (q.length < 2) {
       this._addPhase = "start";
       this._lookupResults = [];
+      this._lookupLib = {};
       this._addError = "";
       return;
     }
@@ -353,6 +529,7 @@ export class ArrDashboardCard extends LitElement {
       this._lookupResults = res.results?.slice(0, 25) ?? [];
       this._addPhase = this._lookupResults.length ? "results" : "no_results";
       this._addError = "";
+      await this._refreshLookupLibraryFlags();
     } catch (err) {
       this._addPhase = "error";
       this._addError = err instanceof Error ? err.message : String(err);
@@ -502,7 +679,9 @@ export class ArrDashboardCard extends LitElement {
           ${sideDetail ? this._renderDetailPanel() : nothing}
         </div>
 
-        ${!sideDetail && this._selectedMovie ? this._renderDetailDialog() : nothing}
+        ${!sideDetail && this._tab === "library" && this._selectedMovie
+          ? this._renderDetailDialog()
+          : nothing}
         ${this._manualMovieId ? this._renderManualSearch() : nothing}
         ${this._grabOkScreen
           ? html`<span hidden data-screen="M07" aria-hidden="true"></span>`
@@ -722,10 +901,9 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private _renderLibrary() {
-    if (this._loading) {
+    if (this._loading || (this._libraryLoading && !this._libraryItems.length)) {
       return html`<div data-screen="L04" class="skeleton-block"></div>`;
     }
-    const movies = this._sortedLibrary();
 
     return html`
       <div data-screen="L01" class="library-pane">
@@ -734,17 +912,27 @@ export class ArrDashboardCard extends LitElement {
           placeholder="Search your library"
           aria-label="Search your library"
           .value=${this._librarySearch}
-          @input=${(e: Event) =>
-            (this._librarySearch = (e.target as HTMLInputElement).value)}
+          @input=${(e: Event) => {
+            this._librarySearch = (e.target as HTMLInputElement).value;
+            if (this._librarySearchTimer) {
+              clearTimeout(this._librarySearchTimer);
+            }
+            this._librarySearchTimer = setTimeout(
+              () => void this._resetLibrary(),
+              LIBRARY_SEARCH_DEBOUNCE_MS,
+            );
+          }}
         />
         <div class="chip-row library-toolbar" role="toolbar" aria-label="Library sort">
           <select
             class="sort-select"
             aria-label="Sort"
             .value=${this._librarySort}
-            @change=${(e: Event) =>
-              (this._librarySort = (e.target as HTMLSelectElement)
-                .value as LibrarySort)}
+            @change=${(e: Event) => {
+              this._librarySort = (e.target as HTMLSelectElement)
+                .value as LibrarySort;
+              void this._resetLibrary();
+            }}
           >
             <option value="title">Title</option>
             <option value="added">Added</option>
@@ -753,18 +941,25 @@ export class ArrDashboardCard extends LitElement {
         </div>
 
         <div class="library-scroll">
-          <div
-            data-screen="L05"
-            class="poster-grid"
-            style="--arr-cols: ${this._posterColumns}"
-            role="list"
-          >
-            ${movies.map((m) => this._libraryItem(m))}
-          </div>
+          ${this._libraryItems.length
+            ? html`
+                <arr-virtual-list
+                  data-screen="L05"
+                  class="library-virtual"
+                  style="--arr-cols: ${this._posterColumns}; --arr-virtual-height: 100%"
+                  .itemCount=${this._libraryItems.length}
+                  .columns=${this._posterColumns}
+                  .itemHeight=${this._posterRowHeight}
+                  rowClass="poster-grid"
+                  .renderRow=${this._libraryRowRender}
+                  @scroll=${this._onLibraryScroll}
+                ></arr-virtual-list>
+              `
+            : html`<p>No movies match your filters.</p>`}
+          ${this._libraryLoadingMore
+            ? html`<p class="hint-muted">Loading more…</p>`
+            : nothing}
         </div>
-        ${!movies.length
-          ? html`<p>No movies match your filters.</p>`
-          : nothing}
       </div>
     `;
   }
@@ -808,43 +1003,38 @@ export class ArrDashboardCard extends LitElement {
 
   private _renderDownloading() {
     if (this._loading && !this._state?.queue) {
-      return html`<div data-screen="D05" class="skeleton-list" aria-busy="true"></div>`;
+      return html`<div data-screen="D05" class="skeleton-block"></div>`;
     }
     const rows = this._queueRecords();
-  if (!rows.length) {
+    if (!rows.length) {
       return html`
-        <div data-screen="D02">
+        <div data-screen="D02" class="download-empty">
           <p>
             <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
           </p>
           <p class="hint-muted">
-            New downloads show up here with progress and time left.
+            Active downloads will appear here as poster tiles.
           </p>
         </div>
       `;
     }
-    const limit = this._compact && !this._showAllDownloads ? 3 : rows.length;
-    const visible = rows.slice(0, limit);
     const listScreen = this._layoutTablet ? "D01T" : "D01";
     return html`
-      <div data-screen=${listScreen} role="list">
-        ${visible.map((row) => this._renderQueueRow(row))}
+      <div data-screen=${listScreen} class="download-pane">
+        <div class="download-scroll">
+          <div
+            class="download-grid"
+            style="--arr-cols: ${this._posterColumns}"
+            role="list"
+          >
+            ${rows.map((row) => this._renderQueueTile(row))}
+          </div>
+        </div>
       </div>
-      ${this._compact && rows.length > 3 && !this._showAllDownloads
-        ? html`
-            <button
-              class="text"
-              data-screen="G04"
-              @click=${() => (this._showAllDownloads = true)}
-            >
-              Show all ${rows.length} downloads
-            </button>
-          `
-        : nothing}
     `;
   }
 
-  private _renderQueueRow(row: QueueItem) {
+  private _renderQueueTile(row: QueueItem) {
     const title = row.movie?.title ?? row.title ?? "Download";
     const failed = (row.status || "").toLowerCase() === "failed";
     const importAttn = (row.trackedDownloadStatus || "")
@@ -853,93 +1043,102 @@ export class ArrDashboardCard extends LitElement {
     const hide = this._hideDestructive;
     const pct = queueProgress(row);
     const exiting = this._exitingQueueIds.includes(row.id);
+    const movieId = row.movie?.id;
+    const poster = movieId ? this._queuePosters[movieId] ?? "" : "";
+    const metaLine = [
+      row.quality?.quality?.name,
+      row.size ? formatBytes(row.size) : "",
+      row.timeleft,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     return html`
-      <div
-        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
+      <article
+        class="queue-tile ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
         role="listitem"
         data-screen=${exiting ? "D06" : nothing}
+        aria-label=${`${title}, ${queueStatusLabel(row)}`}
       >
-        <div class="queue-main">
-          <strong>${title}</strong>
-          <span class="pill ${failed ? "failed" : ""}"
-            >${queueStatusLabel(row)}</span
-          >
+        <div class="queue-tile-poster">
+          <img src=${poster} alt="" loading="lazy" />
           <div
-            class="progress-bar"
+            class="queue-tile-progress"
             role="progressbar"
-            aria-label="${title} progress"
             aria-valuenow=${pct}
             aria-valuemin="0"
             aria-valuemax="100"
+            aria-label="${title} progress"
           >
             <div class="progress-fill" style="width: ${pct}%"></div>
           </div>
-          <div class="queue-meta mono">
-            ${row.quality?.quality?.name ?? ""}
-            ${row.size ? ` · ${formatBytes(row.size)}` : ""}
-            ${row.timeleft ? ` · ${row.timeleft}` : ""}
-          </div>
-          <div class="queue-actions">
-            ${!hide
-              ? html`
-                  ${failed || row.trackedDownloadStatus === "warning"
-                    ? html`<button
-                        class="outline-danger"
-                        data-action="remove-search-again"
-                        data-qid=${row.id}
-                        ?disabled=${this._offline}
-                        @click=${() => void this._removeSearchAgain(row.id, title)}
-                      >
-                        Remove & search again
-                      </button>`
-                    : nothing}
-                  ${failed
-                    ? html`<button
-                        class="outline-danger"
-                        data-action="queue-remove"
-                        data-qid=${row.id}
-                        ?disabled=${this._offline}
-                        @click=${() =>
-                          this._openConfirm("d04b", {
-                            title,
-                            queue_id: row.id,
-                          })}
-                      >
-                        Remove
-                      </button>`
-                    : nothing}
-                `
-              : html`
-                  ${queueNeedsAttention(row)
-                    ? html`<p class="hint-muted" data-screen="D07T">
-                        <ha-icon icon="mdi:information-outline"></ha-icon>
-                        Removing is turned off on this dashboard.
-                      </p>`
-                    : nothing}
-                `}
-            ${importAttn && row.outputPath
-              ? html`<button
-                  class="primary"
-                  data-action="retry-import"
-                  ?disabled=${this._offline}
-                  @click=${() => void this._retryImport(row)}
-                >
-                  Retry import
-                </button>`
-              : nothing}
-          </div>
+          <span class="queue-tile-status pill ${failed ? "failed" : ""}"
+            >${queueStatusLabel(row)}</span
+          >
+          ${!hide
+            ? html`<button
+                class="queue-tile-overflow"
+                aria-label="More actions for ${title}"
+                data-screen="D03"
+                @click=${() => (this._queueOverflow = row)}
+              >
+                ⋮
+              </button>`
+            : nothing}
         </div>
-        ${!hide
-          ? html`<button
-              aria-label="More actions for ${title}"
-              class="text overflow-btn"
-              data-screen="D03"
-              @click=${() => (this._queueOverflow = row)}
-            >
-              ⋮
-            </button>`
+        <p class="queue-tile-title">${title}</p>
+        ${metaLine
+          ? html`<p class="queue-tile-meta">${metaLine}</p>`
           : nothing}
-      </div>
+        <div class="queue-tile-actions">
+          ${!hide
+            ? html`
+                ${failed || row.trackedDownloadStatus === "warning"
+                  ? html`<button
+                      class="outline-danger compact"
+                      data-action="remove-search-again"
+                      data-qid=${row.id}
+                      ?disabled=${this._offline}
+                      @click=${() => void this._removeSearchAgain(row.id, title)}
+                    >
+                      Remove & search again
+                    </button>`
+                  : nothing}
+                ${failed
+                  ? html`<button
+                      class="outline-danger compact"
+                      data-action="queue-remove"
+                      data-qid=${row.id}
+                      ?disabled=${this._offline}
+                      @click=${() =>
+                        this._openConfirm("d04b", {
+                          title,
+                          queue_id: row.id,
+                        })}
+                    >
+                      Remove
+                    </button>`
+                  : nothing}
+              `
+            : html`
+                ${queueNeedsAttention(row)
+                  ? html`<p class="hint-muted" data-screen="D07T">
+                      <ha-icon icon="mdi:information-outline"></ha-icon>
+                      Removing is turned off on this dashboard.
+                    </p>`
+                  : nothing}
+              `}
+          ${importAttn && row.outputPath
+            ? html`<button
+                class="primary compact"
+                data-action="retry-import"
+                ?disabled=${this._offline}
+                @click=${() => void this._retryImport(row)}
+              >
+                Retry import
+              </button>`
+            : nothing}
+        </div>
+      </article>
     `;
   }
 
@@ -958,14 +1157,13 @@ export class ArrDashboardCard extends LitElement {
               : this._addPhase === "error"
                 ? "A07"
                 : "A01";
-    const movies = this._state?.movies ?? [];
     const comingSoon = this._lookupResults.filter((r) => {
       const st = String(r.status ?? r.statusType ?? "").toLowerCase();
       return st.includes("cinemas") || st.includes("announced");
     });
     const libraryUpcoming =
       this._addPhase === "start" && !this._addQuery.trim()
-        ? upcomingMovies(movies, this.config.upcoming_days ?? 30)
+        ? this._addUpcoming
         : [];
 
     return html`
@@ -1014,7 +1212,7 @@ export class ArrDashboardCard extends LitElement {
           : nothing}
         <div role="list">
           ${this._lookupResults.map((r) => {
-            const lib = inLibrary(movies, r as { tmdbId?: number; title?: string; year?: number });
+            const lib = this._lookupLib[this._lookupLibKey(r)];
             return html`
               <div class="lookup-row" role="listitem">
                 <strong>${r.title as string} (${r.year as number})</strong>
@@ -1072,10 +1270,7 @@ export class ArrDashboardCard extends LitElement {
       <div data-screen=${screen}>
       <button
         class="text"
-        @click=${() => {
-          this._selectedMovie = undefined;
-          this._detailExtra = undefined;
-        }}
+        @click=${() => this._closeMovieDetail()}
       >
         ← Back
       </button>
