@@ -13,6 +13,12 @@ import {
   type LibraryChip,
   type LibrarySort,
 } from "./library-logic";
+import { animateQueueRowExit } from "./queue-motion";
+import {
+  releaseQualityName,
+  sortReleases,
+  type ReleaseSort,
+} from "./release-logic";
 import {
   renderAddSheet,
   renderFailureSheet,
@@ -115,6 +121,10 @@ export class ArrDashboardCard extends LitElement {
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
   @state() private _releaseBusy = false;
+  @state() private _releaseSort: ReleaseSort = "match";
+  @state() private _exitingQueueIds: number[] = [];
+  @state() private _qualityPendingId?: number;
+  @state() private _qualityBusy = false;
   @state() private _searchAgainBusy = false;
   @state() private _grabOkScreen = false;
 
@@ -540,11 +550,16 @@ export class ArrDashboardCard extends LitElement {
         )}
         ${renderQualitySheet(
           this._qualityOpen,
+          this._selectedMovie?.title,
+          this._selectedMovie?.year,
           this._state?.quality_profiles ?? [],
           this._selectedMovie?.qualityProfileId,
+          this._qualityPendingId,
           this._qualitySearch,
+          this._qualityBusy,
           (v) => (this._qualitySearch = v),
-          (id) => void this._setQualityProfile(id),
+          (id) => (this._qualityPendingId = id),
+          () => void this._saveQualityProfile(),
           () => (this._qualityOpen = false),
         )}
         ${this._queueOverflow
@@ -924,10 +939,12 @@ export class ArrDashboardCard extends LitElement {
       .includes("import");
     const hide = this._hideDestructive;
     const pct = queueProgress(row);
+    const exiting = this._exitingQueueIds.includes(row.id);
     return html`
       <div
-        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""}"
+        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
         role="listitem"
+        data-screen=${exiting ? "D06" : nothing}
       >
         <div class="queue-main">
           <strong>${title}</strong>
@@ -1033,6 +1050,10 @@ export class ArrDashboardCard extends LitElement {
       const st = String(r.status ?? r.statusType ?? "").toLowerCase();
       return st.includes("cinemas") || st.includes("announced");
     });
+    const libraryUpcoming =
+      this._addPhase === "start" && !this._addQuery.trim()
+        ? upcomingMovies(movies, this.config.upcoming_days ?? 30)
+        : [];
 
     return html`
       <svg width="0" height="0" aria-hidden="true"></svg>
@@ -1048,6 +1069,16 @@ export class ArrDashboardCard extends LitElement {
             this._scheduleLookup();
           }}
         />
+        ${libraryUpcoming.length
+          ? html`
+              <section data-screen="A01" class="row-section">
+                <h3>Coming soon in your library</h3>
+                <div class="h-scroll">
+                  ${libraryUpcoming.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+          : nothing}
         ${this._addPhase === "searching"
           ? html`<div class="skeleton-list" aria-busy="true"></div>`
           : nothing}
@@ -1190,7 +1221,12 @@ export class ArrDashboardCard extends LitElement {
           class="text"
           data-screen="M08"
           ?disabled=${this._offline}
-          @click=${() => (this._qualityOpen = true)}
+          @click=${() => {
+            this._qualityPendingId =
+              this._selectedMovie?.qualityProfileId ??
+              this._state?.quality_profiles?.[0]?.id;
+            this._qualityOpen = true;
+          }}
         >
           Change quality profile
         </button>
@@ -1267,12 +1303,17 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private _renderManualSearch() {
-    const filtered = this._releases.filter((r) =>
+    const all = this._releases;
+    const rejectedCount = all.filter((r) => r.approved === false).length;
+    const approvedCount = all.filter((r) => r.approved !== false).length;
+    const filtered = all.filter((r) =>
       this._showRejected ? true : r.approved !== false,
     );
+    const sorted = sortReleases(filtered, this._releaseSort);
+    const bestGuid = sorted.find((r) => r.approved !== false)?.guid;
     const screen = this._releaseBusy
       ? "M04"
-      : !filtered.length
+      : !sorted.length
         ? "M11"
         : this._layoutTablet
           ? "M05T"
@@ -1286,6 +1327,7 @@ export class ArrDashboardCard extends LitElement {
         <label>
           <input
             type="checkbox"
+            role="switch"
             .checked=${this._showRejected}
             @change=${(e: Event) =>
               (this._showRejected = (e.target as HTMLInputElement).checked)}
@@ -1300,7 +1342,7 @@ export class ArrDashboardCard extends LitElement {
               </p>
               <div class="skeleton-list" aria-busy="true"></div>
             `
-          : !filtered.length
+          : !sorted.length
             ? html`
                 <p>No releases found</p>
                 <p class="hint-muted">
@@ -1309,32 +1351,66 @@ export class ArrDashboardCard extends LitElement {
                 </p>
               `
             : html`
+                <div class="release-header">
+                  <span
+                    >${approvedCount} releases · ${rejectedCount} rejected</span
+                  >
+                  <select
+                    aria-label="Sort releases"
+                    .value=${this._releaseSort}
+                    @change=${(e: Event) =>
+                      (this._releaseSort = (e.target as HTMLSelectElement)
+                        .value as ReleaseSort)}
+                  >
+                    <option value="match">Best match</option>
+                    <option value="size">Size</option>
+                    <option value="age">Age</option>
+                    <option value="seeders">Seeders</option>
+                  </select>
+                </div>
                 <div role="list">
-                  ${filtered.map((r) => this._releaseRow(r))}
+                  ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
                 </div>
               `}
       </dialog>
     `;
   }
 
-  private _releaseRow(r: ReleaseRow) {
+  private _releaseRow(r: ReleaseRow, bestMatch: boolean) {
     const rejected = r.approved === false;
     const reasons = (r.rejections ?? []).join(" · ");
+    const peers =
+      r.protocol === "usenet" || r.seeders == null
+        ? "Usenet"
+        : `${r.seeders} seeders`;
     return html`
       <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
         <div>
-          <strong>${r.title ?? r.indexer ?? "Release"}</strong>
-          <div class="mono">
-            ${formatBytes(r.size)} · ${r.seeders ?? "?"} seeders · ${r.age ?? "?"}d
+          <strong class="mono">${r.title ?? r.indexer ?? "Release"}</strong>
+          <div class="release-header">
+            <span class="release-chip">${releaseQualityName(r)}</span>
+            <span class="mono"
+              >${formatBytes(r.size)} · ${r.age ?? "?"}d · ${peers}</span
+            >
+            <span>${r.indexer ?? "—"}</span>
+            <span class="release-chip"
+              >Score ${r.customFormatScore ?? 0}</span
+            >
+            ${bestMatch && !rejected
+              ? html`<span class="best-match-pill">Best match</span>`
+              : nothing}
           </div>
           ${rejected
-            ? html`<p class="hint-muted">${reasons}</p>`
+            ? html`<p class="hint-muted">
+                <ha-icon icon="mdi:alert-outline"></ha-icon> Rejected:
+                ${reasons}
+              </p>`
             : nothing}
         </div>
         ${rejected && this._hideDestructive
           ? nothing
           : html`<button
-              class="primary"
+              class="${rejected ? "text" : "primary"}"
               ?disabled=${this._offline || this._releaseBusy}
               @click=${() => this._grabRelease(r, rejected, reasons)}
             >
@@ -1440,6 +1516,7 @@ export class ArrDashboardCard extends LitElement {
               Boolean(this._confirm.searchAgain),
             ),
           );
+          await this._animateQueueExit(Number(payload.queue_id));
           break;
         case "d04b":
           await this._ws("queue_remove", {
@@ -1447,6 +1524,7 @@ export class ArrDashboardCard extends LitElement {
             remove_from_client: this._confirm.removeFromClient ?? true,
           });
           showToast(this, toastRemoveQueue(String(payload.title)));
+          await this._animateQueueExit(Number(payload.queue_id));
           break;
         case "m06": {
           const rel = payload.release as ReleaseRow;
@@ -1458,7 +1536,9 @@ export class ArrDashboardCard extends LitElement {
         default:
           break;
       }
-      await this._refresh();
+      if (kind !== "d04" && kind !== "d04b") {
+        await this._refresh();
+      }
     } catch (err) {
       const cmd =
         kind === "m10"
@@ -1482,10 +1562,20 @@ export class ArrDashboardCard extends LitElement {
     try {
       await this._ws("queue_remove_search_again", { queue_id: queueId });
       showToast(this, toastRemoveSearchAgain(title));
-      await this._refresh();
+      await this._animateQueueExit(queueId);
     } catch (err) {
       this._fail("queue_remove", err);
     }
+  }
+
+  private async _animateQueueExit(queueId: number): Promise<void> {
+    await animateQueueRowExit(() => {
+      if (!this._exitingQueueIds.includes(queueId)) {
+        this._exitingQueueIds = [...this._exitingQueueIds, queueId];
+      }
+    });
+    await this._refresh();
+    this._exitingQueueIds = this._exitingQueueIds.filter((id) => id !== queueId);
   }
 
   private async _retryImport(row: QueueItem): Promise<void> {
@@ -1542,11 +1632,13 @@ export class ArrDashboardCard extends LitElement {
     await this._loadReleases(m.id);
   }
 
-  private async _setQualityProfile(profileId: number): Promise<void> {
+  private async _saveQualityProfile(): Promise<void> {
+    const profileId = this._qualityPendingId;
     const m = this._selectedMovie;
-    if (!m) return;
+    if (!m || profileId == null) return;
     const profiles = this._state?.quality_profiles ?? [];
     const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
+    this._qualityBusy = true;
     try {
       await this._ws("set_quality_profile", {
         movie_id: m.id,
@@ -1558,6 +1650,8 @@ export class ArrDashboardCard extends LitElement {
       await this._refresh();
     } catch (err) {
       this._fail("set_quality_profile", err);
+    } finally {
+      this._qualityBusy = false;
     }
   }
 

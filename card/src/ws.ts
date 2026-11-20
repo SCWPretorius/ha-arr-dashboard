@@ -70,6 +70,8 @@ export interface RootFolder {
 export interface QualityProfile {
   id: number;
   name: string;
+  items?: { quality?: { name?: string }; name?: string }[];
+  cutoff?: { name?: string };
 }
 
 export interface ConfigEntryFragment {

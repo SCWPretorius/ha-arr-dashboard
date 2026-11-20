@@ -70,4 +70,7 @@ export interface ReleaseRow {
   rejections?: string[];
   approved?: boolean;
   customFormatScore?: number;
+  quality?: { quality?: { name?: string } };
+  qualityProfileId?: number;
+  protocol?: string;
 }

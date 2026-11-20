@@ -294,6 +294,132 @@ describe("arr-card remove missing movie", () => {
   });
 });
 
+describe("arr-card A01 upcoming row", () => {
+  it("shows Coming soon in your library on add start", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["add"],
+      default_tab: "add",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    const row = el.shadowRoot?.querySelector('[data-screen="A01"]');
+    expect(row).to.exist;
+    expect(row?.textContent).to.contain("Coming soon in your library");
+  });
+});
+
+describe("arr-card M08 quality sheet", () => {
+  it("disables Save profile until selection changes", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card", tabs: ["library"] });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    Object.assign(el, {
+      _selectedMovie: {
+        id: 1,
+        title: "Test",
+        year: 2020,
+        qualityProfileId: 1,
+        hasFile: true,
+      },
+      _state: {
+        quality_profiles: [
+          {
+            id: 1,
+            name: "HD",
+            items: [
+              { quality: { name: "720p" } },
+              { quality: { name: "1080p" } },
+            ],
+            cutoff: { name: "1080p" },
+          },
+          { id: 2, name: "SD", items: [{ quality: { name: "480p" } }] },
+        ],
+      },
+      _qualityOpen: true,
+      _qualityPendingId: 1,
+    });
+    el.requestUpdate();
+    await el.updateComplete;
+    const save = el.shadowRoot?.querySelector(
+      '[data-screen="M08"] button.primary',
+    ) as HTMLButtonElement | null;
+    expect(save?.textContent?.trim()).to.equal("Save profile");
+    expect(save?.disabled).to.equal(true);
+    Object.assign(el, { _qualityPendingId: 2 });
+    el.requestUpdate();
+    await el.updateComplete;
+    expect(save?.disabled).to.equal(false);
+  });
+});
+
+describe("arr-card manual search M05", () => {
+  it("renders release header and best match pill", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    Object.assign(el, {
+      _manualMovieId: 1,
+      _releaseBusy: false,
+      _releases: [
+        {
+          guid: "good",
+          title: "Movie.1080p",
+          approved: true,
+          size: 5e9,
+          age: 2,
+          seeders: 10,
+          indexer: "Tracker",
+          customFormatScore: 42,
+          quality: { quality: { name: "1080p" } },
+        },
+        {
+          guid: "bad",
+          title: "Cam",
+          approved: false,
+          rejections: ["CAM"],
+        },
+      ],
+    });
+    el.requestUpdate();
+    await el.updateComplete;
+    const header = el.shadowRoot?.querySelector(".release-header span");
+    expect(header?.textContent).to.contain("1 releases");
+    const best = el.shadowRoot?.querySelector(".best-match-pill");
+    expect(best?.textContent).to.equal("Best match");
+  });
+});
+
+describe("arr-card D06 queue row exit", () => {
+  it("marks row exiting during animateQueueRowExit", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["downloading"],
+      default_tab: "downloading",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 60));
+    await el.updateComplete;
+    Object.assign(el, { _exitingQueueIds: [1] });
+    el.requestUpdate();
+    await el.updateComplete;
+    const row = el.shadowRoot?.querySelector('[data-screen="D06"]');
+    expect(row).to.exist;
+    expect(row?.classList.contains("exiting")).to.equal(true);
+  });
+});
+
 describe("arr-card hide grab anyway", () => {
   it("omits Grab anyway on rejected releases", async () => {
     const el = document.createElement("arr-card") as ArrDashboardCard;

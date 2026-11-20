@@ -223,6 +223,80 @@ export const cardStyles = css`
     padding: 12px 0;
     border-bottom: 1px solid var(--divider-color);
     position: relative;
+    overflow: hidden;
+  }
+
+  .queue-row.exiting {
+    animation: queue-row-exit 200ms ease forwards;
+  }
+
+  @keyframes queue-row-exit {
+    to {
+      opacity: 0;
+      transform: translateX(-12px);
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .queue-row.exiting {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
+  .profile-radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 12px 0;
+  }
+
+  .profile-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 56px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .profile-radio.selected {
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  }
+
+  .profile-radio-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .profile-summary {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+  }
+
+  .release-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .release-chip {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+  }
+
+  .best-match-pill {
+    font-size: 0.75rem;
+    color: var(--arr-accent-text);
   }
 
   .queue-row.attention::before {

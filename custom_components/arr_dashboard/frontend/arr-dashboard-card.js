@@ -411,10 +411,70 @@ function indexLetters(movies) {
     return [...letters].sort();
 }
 
+const EXIT_MS = 200;
+function prefersReducedMotion() {
+    return (typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+async function animateQueueRowExit(onExitStart) {
+    onExitStart();
+    if (prefersReducedMotion())
+        return;
+    await new Promise((resolve) => window.setTimeout(resolve, EXIT_MS));
+}
+
+function sortReleases(rows, sort) {
+    const copy = [...rows];
+    switch (sort) {
+        case "size":
+            copy.sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+            break;
+        case "age":
+            copy.sort((a, b) => (a.age ?? 0) - (b.age ?? 0));
+            break;
+        case "seeders":
+            copy.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0));
+            break;
+    }
+    return copy;
+}
+function releaseQualityName(release) {
+    return release.quality?.quality?.name ?? "—";
+}
+
+function qualityNames(profile) {
+    const items = profile.items ?? [];
+    const names = [];
+    for (const item of items) {
+        const q = item.quality?.name ?? item.name;
+        if (q)
+            names.push(q);
+    }
+    return names;
+}
+function profileSummaryLine(profile) {
+    const names = qualityNames(profile);
+    if (!names.length)
+        return "";
+    if (names.length === 1)
+        return `${names[0]} only`;
+    const lowest = names[0];
+    const highest = names[names.length - 1];
+    const cutoff = profile.cutoff?.name;
+    if (cutoff) {
+        return `${lowest}–${highest} · upgrades until ${cutoff}`;
+    }
+    return `${lowest}–${highest}`;
+}
+
 function renderStatusSheet(open, health, disks, config, onClose) {
     if (!open)
         return A;
     const link = config.external_link;
+    const issueCount = health.filter((h) => h.type === "warning" || h.type === "error").length;
+    const intro = issueCount > 0
+        ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+        : "Everything looks good.";
     return b `
     <div
       class="sheet-backdrop"
@@ -429,22 +489,23 @@ function renderStatusSheet(open, health, disks, config, onClose) {
           <h2>Radarr status</h2>
           <button class="text" @click=${onClose}>Done</button>
         </div>
+        <p class="hint-muted">${intro}</p>
         <section>
           <h3>Health</h3>
           ${health.length
         ? health.map((h) => b `
                   <p class="status-line">
                     <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                    ${h.message}
+                    ${h.source ?? ""} · from Radarr — ${h.message}
                   </p>
                 `)
         : b `<p class="hint-muted">No health warnings.</p>`}
         </section>
         <section>
-          <h3>Disk</h3>
+          <h3>Disk space</h3>
           ${disks.map((d) => b `
               <p class="status-line mono">
-                ${d.path}: ${formatBytes(d.freeSpace)} free /
+                ${d.path}: ${formatBytes(d.freeSpace)} free of
                 ${formatBytes(d.totalSpace)}
               </p>
             `)}
@@ -531,14 +592,14 @@ function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, ro
           <label>
             Minimum availability
             <select
-            .value=${minAvailability}
-            @change=${(e) => setMinAvail(e.target.value)}
-          >
-            <option value="announced">Announced</option>
-            <option value="inCinemas">In cinemas</option>
-            <option value="released">Released</option>
-          </select>
-        </label>
+              .value=${minAvailability}
+              @change=${(e) => setMinAvail(e.target.value)}
+            >
+              <option value="announced">Announced</option>
+              <option value="inCinemas">In cinemas</option>
+              <option value="released">Released</option>
+            </select>
+          </label>
         </details>
         <label>
           <input
@@ -577,9 +638,11 @@ function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, ro
     </div>
   `;
 }
-function renderQualitySheet(open, profiles, currentId, searchAfter, setSearch, onPick, onClose) {
+function renderQualitySheet(open, movieTitle, movieYear, profiles, currentId, pendingId, searchAfter, busy, setSearch, onSelect, onSave, onClose) {
     if (!open)
         return A;
+    const current = profiles.find((p) => p.id === currentId);
+    const changed = pendingId !== undefined && pendingId !== currentId;
     return b `
     <div
       class="sheet-backdrop"
@@ -589,8 +652,12 @@ function renderQualitySheet(open, profiles, currentId, searchAfter, setSearch, o
             onClose();
     }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Change quality profile">
+      <div class="sheet-panel quality-sheet" role="dialog">
         <h2>Change quality profile</h2>
+        <p class="hint-muted">
+          ${movieTitle ?? "Movie"}${movieYear ? ` (${movieYear})` : ""} · now
+          ${current?.name ?? "—"}
+        </p>
         <label>
           <input
             type="checkbox"
@@ -602,17 +669,35 @@ function renderQualitySheet(open, profiles, currentId, searchAfter, setSearch, o
         <p class="hint-muted">
           Your current file stays until a better one is imported.
         </p>
-        ${profiles.map((p) => b `
-            <button
-              class="list-row ${p.id === currentId ? "selected" : ""}"
-              @click=${() => onPick(p.id)}
-            >
-              ${p.name}
-              ${p.id === currentId
-        ? b `<ha-icon icon="mdi:check"></ha-icon>`
-        : A}
-            </button>
-          `)}
+        <div class="profile-radio-list" role="radiogroup">
+          ${profiles.map((p) => b `
+              <label class="profile-radio ${p.id === pendingId ? "selected" : ""}">
+                <input
+                  type="radio"
+                  name="quality-profile"
+                  .checked=${p.id === pendingId}
+                  @change=${() => onSelect(p.id)}
+                />
+                <span class="profile-radio-body">
+                  <span class="profile-name"
+                    >${p.name}
+                    ${p.id === currentId ? b ` · current` : A}</span
+                  >
+                  <span class="profile-summary">${profileSummaryLine(p)}</span>
+                </span>
+              </label>
+            `)}
+        </div>
+        <div class="dialog-actions">
+          <button class="text" @click=${onClose}>Cancel</button>
+          <button
+            class="primary"
+            ?disabled=${!changed || busy}
+            @click=${onSave}
+          >
+            ${busy ? "Saving…" : "Save profile"}
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -942,6 +1027,80 @@ const cardStyles = i$3 `
     padding: 12px 0;
     border-bottom: 1px solid var(--divider-color);
     position: relative;
+    overflow: hidden;
+  }
+
+  .queue-row.exiting {
+    animation: queue-row-exit 200ms ease forwards;
+  }
+
+  @keyframes queue-row-exit {
+    to {
+      opacity: 0;
+      transform: translateX(-12px);
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .queue-row.exiting {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
+  .profile-radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 12px 0;
+  }
+
+  .profile-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 56px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .profile-radio.selected {
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  }
+
+  .profile-radio-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .profile-summary {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+  }
+
+  .release-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .release-chip {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+  }
+
+  .best-match-pill {
+    font-size: 0.75rem;
+    color: var(--arr-accent-text);
   }
 
   .queue-row.attention::before {
@@ -1842,6 +2001,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._releases = [];
         this._showRejected = false;
         this._releaseBusy = false;
+        this._releaseSort = "match";
+        this._exitingQueueIds = [];
+        this._qualityBusy = false;
         this._searchAgainBusy = false;
         this._grabOkScreen = false;
         this._failCount = 0;
@@ -2202,7 +2364,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             this._addSheetOpen = false;
             this._addPhase = "results";
         }, () => void this._confirmAddMovie())}
-        ${renderQualitySheet(this._qualityOpen, this._state?.quality_profiles ?? [], this._selectedMovie?.qualityProfileId, this._qualitySearch, (v) => (this._qualitySearch = v), (id) => void this._setQualityProfile(id), () => (this._qualityOpen = false))}
+        ${renderQualitySheet(this._qualityOpen, this._selectedMovie?.title, this._selectedMovie?.year, this._state?.quality_profiles ?? [], this._selectedMovie?.qualityProfileId, this._qualityPendingId, this._qualitySearch, this._qualityBusy, (v) => (this._qualitySearch = v), (id) => (this._qualityPendingId = id), () => void this._saveQualityProfile(), () => (this._qualityOpen = false))}
         ${this._queueOverflow
             ? renderQueueOverflowSheet(true, this._queueOverflow.movie?.title ?? this._queueOverflow.title ?? "", this._queueOverflow.movie?.year, this._hideDestructive, this._offline, () => (this._queueOverflow = undefined), () => {
                 const row = this._queueOverflow;
@@ -2536,10 +2698,12 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             .includes("import");
         const hide = this._hideDestructive;
         const pct = queueProgress(row);
+        const exiting = this._exitingQueueIds.includes(row.id);
         return b `
       <div
-        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""}"
+        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
         role="listitem"
+        data-screen=${exiting ? "D06" : A}
       >
         <div class="queue-main">
           <strong>${title}</strong>
@@ -2642,6 +2806,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             const st = String(r.status ?? r.statusType ?? "").toLowerCase();
             return st.includes("cinemas") || st.includes("announced");
         });
+        const libraryUpcoming = this._addPhase === "start" && !this._addQuery.trim()
+            ? upcomingMovies(movies, this.config.upcoming_days ?? 30)
+            : [];
         return b `
       <svg width="0" height="0" aria-hidden="true"></svg>
       <div data-screen=${screen}>
@@ -2656,6 +2823,16 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             this._scheduleLookup();
         }}
         />
+        ${libraryUpcoming.length
+            ? b `
+              <section data-screen="A01" class="row-section">
+                <h3>Coming soon in your library</h3>
+                <div class="h-scroll">
+                  ${libraryUpcoming.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
         ${this._addPhase === "searching"
             ? b `<div class="skeleton-list" aria-busy="true"></div>`
             : A}
@@ -2789,7 +2966,12 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
           class="text"
           data-screen="M08"
           ?disabled=${this._offline}
-          @click=${() => (this._qualityOpen = true)}
+          @click=${() => {
+            this._qualityPendingId =
+                this._selectedMovie?.qualityProfileId ??
+                    this._state?.quality_profiles?.[0]?.id;
+            this._qualityOpen = true;
+        }}
         >
           Change quality profile
         </button>
@@ -2857,10 +3039,15 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     `;
     }
     _renderManualSearch() {
-        const filtered = this._releases.filter((r) => this._showRejected ? true : r.approved !== false);
+        const all = this._releases;
+        const rejectedCount = all.filter((r) => r.approved === false).length;
+        const approvedCount = all.filter((r) => r.approved !== false).length;
+        const filtered = all.filter((r) => this._showRejected ? true : r.approved !== false);
+        const sorted = sortReleases(filtered, this._releaseSort);
+        const bestGuid = sorted.find((r) => r.approved !== false)?.guid;
         const screen = this._releaseBusy
             ? "M04"
-            : !filtered.length
+            : !sorted.length
                 ? "M11"
                 : this._layoutTablet
                     ? "M05T"
@@ -2874,6 +3061,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         <label>
           <input
             type="checkbox"
+            role="switch"
             .checked=${this._showRejected}
             @change=${(e) => (this._showRejected = e.target.checked)}
           />
@@ -2887,7 +3075,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
               </p>
               <div class="skeleton-list" aria-busy="true"></div>
             `
-            : !filtered.length
+            : !sorted.length
                 ? b `
                 <p>No releases found</p>
                 <p class="hint-muted">
@@ -2896,31 +3084,63 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                 </p>
               `
                 : b `
+                <div class="release-header">
+                  <span
+                    >${approvedCount} releases · ${rejectedCount} rejected</span
+                  >
+                  <select
+                    aria-label="Sort releases"
+                    .value=${this._releaseSort}
+                    @change=${(e) => (this._releaseSort = e.target
+                    .value)}
+                  >
+                    <option value="match">Best match</option>
+                    <option value="size">Size</option>
+                    <option value="age">Age</option>
+                    <option value="seeders">Seeders</option>
+                  </select>
+                </div>
                 <div role="list">
-                  ${filtered.map((r) => this._releaseRow(r))}
+                  ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
                 </div>
               `}
       </dialog>
     `;
     }
-    _releaseRow(r) {
+    _releaseRow(r, bestMatch) {
         const rejected = r.approved === false;
         const reasons = (r.rejections ?? []).join(" · ");
+        const peers = r.protocol === "usenet" || r.seeders == null
+            ? "Usenet"
+            : `${r.seeders} seeders`;
         return b `
       <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
         <div>
-          <strong>${r.title ?? r.indexer ?? "Release"}</strong>
-          <div class="mono">
-            ${formatBytes(r.size)} · ${r.seeders ?? "?"} seeders · ${r.age ?? "?"}d
+          <strong class="mono">${r.title ?? r.indexer ?? "Release"}</strong>
+          <div class="release-header">
+            <span class="release-chip">${releaseQualityName(r)}</span>
+            <span class="mono"
+              >${formatBytes(r.size)} · ${r.age ?? "?"}d · ${peers}</span
+            >
+            <span>${r.indexer ?? "—"}</span>
+            <span class="release-chip"
+              >Score ${r.customFormatScore ?? 0}</span
+            >
+            ${bestMatch && !rejected
+            ? b `<span class="best-match-pill">Best match</span>`
+            : A}
           </div>
           ${rejected
-            ? b `<p class="hint-muted">${reasons}</p>`
+            ? b `<p class="hint-muted">
+                <ha-icon icon="mdi:alert-outline"></ha-icon> Rejected:
+                ${reasons}
+              </p>`
             : A}
         </div>
         ${rejected && this._hideDestructive
             ? A
             : b `<button
-              class="primary"
+              class="${rejected ? "text" : "primary"}"
               ?disabled=${this._offline || this._releaseBusy}
               @click=${() => this._grabRelease(r, rejected, reasons)}
             >
@@ -3005,6 +3225,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                         remove_from_client: this._confirm.removeFromClient ?? true,
                     });
                     showToast(this, toastRemoveBlocklist(String(payload.title), Boolean(this._confirm.searchAgain)));
+                    await this._animateQueueExit(Number(payload.queue_id));
                     break;
                 case "d04b":
                     await this._ws("queue_remove", {
@@ -3012,6 +3233,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                         remove_from_client: this._confirm.removeFromClient ?? true,
                     });
                     showToast(this, toastRemoveQueue(String(payload.title)));
+                    await this._animateQueueExit(Number(payload.queue_id));
                     break;
                 case "m06": {
                     const rel = payload.release;
@@ -3023,7 +3245,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                 default:
                     break;
             }
-            await this._refresh();
+            if (kind !== "d04" && kind !== "d04b") {
+                await this._refresh();
+            }
         }
         catch (err) {
             const cmd = kind === "m10"
@@ -3044,11 +3268,20 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         try {
             await this._ws("queue_remove_search_again", { queue_id: queueId });
             showToast(this, toastRemoveSearchAgain(title));
-            await this._refresh();
+            await this._animateQueueExit(queueId);
         }
         catch (err) {
             this._fail("queue_remove", err);
         }
+    }
+    async _animateQueueExit(queueId) {
+        await animateQueueRowExit(() => {
+            if (!this._exitingQueueIds.includes(queueId)) {
+                this._exitingQueueIds = [...this._exitingQueueIds, queueId];
+            }
+        });
+        await this._refresh();
+        this._exitingQueueIds = this._exitingQueueIds.filter((id) => id !== queueId);
     }
     async _retryImport(row) {
         try {
@@ -3098,12 +3331,14 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     async _openManualSearch(m) {
         await this._loadReleases(m.id);
     }
-    async _setQualityProfile(profileId) {
+    async _saveQualityProfile() {
+        const profileId = this._qualityPendingId;
         const m = this._selectedMovie;
-        if (!m)
+        if (!m || profileId == null)
             return;
         const profiles = this._state?.quality_profiles ?? [];
         const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
+        this._qualityBusy = true;
         try {
             await this._ws("set_quality_profile", {
                 movie_id: m.id,
@@ -3116,6 +3351,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         }
         catch (err) {
             this._fail("set_quality_profile", err);
+        }
+        finally {
+            this._qualityBusy = false;
         }
     }
     getCardSize() {
@@ -3237,6 +3475,18 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_releaseBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releaseSort", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_exitingQueueIds", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityPendingId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityBusy", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_searchAgainBusy", void 0);

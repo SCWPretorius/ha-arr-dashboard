@@ -1,6 +1,7 @@
 import { html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import { formatBytes } from "./format";
+import { profileSummaryLine } from "./profile-summary";
 import type { ArrCardConfig } from "./types";
 import type { DiskItem, HealthItem, QualityProfile, RootFolder } from "./ws";
 
@@ -13,6 +14,13 @@ export function renderStatusSheet(
 ): TemplateResult | typeof nothing {
   if (!open) return nothing;
   const link = config.external_link;
+  const issueCount = health.filter(
+    (h) => h.type === "warning" || h.type === "error",
+  ).length;
+  const intro =
+    issueCount > 0
+      ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+      : "Everything looks good.";
   return html`
     <div
       class="sheet-backdrop"
@@ -26,6 +34,7 @@ export function renderStatusSheet(
           <h2>Radarr status</h2>
           <button class="text" @click=${onClose}>Done</button>
         </div>
+        <p class="hint-muted">${intro}</p>
         <section>
           <h3>Health</h3>
           ${health.length
@@ -33,18 +42,18 @@ export function renderStatusSheet(
                 (h) => html`
                   <p class="status-line">
                     <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                    ${h.message}
+                    ${h.source ?? ""} · from Radarr — ${h.message}
                   </p>
                 `,
               )
             : html`<p class="hint-muted">No health warnings.</p>`}
         </section>
         <section>
-          <h3>Disk</h3>
+          <h3>Disk space</h3>
           ${disks.map(
             (d) => html`
               <p class="status-line mono">
-                ${d.path}: ${formatBytes(d.freeSpace)} free /
+                ${d.path}: ${formatBytes(d.freeSpace)} free of
                 ${formatBytes(d.totalSpace)}
               </p>
             `,
@@ -160,15 +169,15 @@ export function renderAddSheet(
           <label>
             Minimum availability
             <select
-            .value=${minAvailability}
-            @change=${(e: Event) =>
-              setMinAvail((e.target as HTMLSelectElement).value)}
-          >
-            <option value="announced">Announced</option>
-            <option value="inCinemas">In cinemas</option>
-            <option value="released">Released</option>
-          </select>
-        </label>
+              .value=${minAvailability}
+              @change=${(e: Event) =>
+                setMinAvail((e.target as HTMLSelectElement).value)}
+            >
+              <option value="announced">Announced</option>
+              <option value="inCinemas">In cinemas</option>
+              <option value="released">Released</option>
+            </select>
+          </label>
         </details>
         <label>
           <input
@@ -212,14 +221,21 @@ export function renderAddSheet(
 
 export function renderQualitySheet(
   open: boolean,
+  movieTitle: string | undefined,
+  movieYear: number | undefined,
   profiles: QualityProfile[],
   currentId: number | undefined,
+  pendingId: number | undefined,
   searchAfter: boolean,
+  busy: boolean,
   setSearch: (v: boolean) => void,
-  onPick: (id: number) => void,
+  onSelect: (id: number) => void,
+  onSave: () => void,
   onClose: () => void,
 ): TemplateResult | typeof nothing {
   if (!open) return nothing;
+  const current = profiles.find((p) => p.id === currentId);
+  const changed = pendingId !== undefined && pendingId !== currentId;
   return html`
     <div
       class="sheet-backdrop"
@@ -228,8 +244,12 @@ export function renderQualitySheet(
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Change quality profile">
+      <div class="sheet-panel quality-sheet" role="dialog">
         <h2>Change quality profile</h2>
+        <p class="hint-muted">
+          ${movieTitle ?? "Movie"}${movieYear ? ` (${movieYear})` : ""} · now
+          ${current?.name ?? "—"}
+        </p>
         <label>
           <input
             type="checkbox"
@@ -242,19 +262,37 @@ export function renderQualitySheet(
         <p class="hint-muted">
           Your current file stays until a better one is imported.
         </p>
-        ${profiles.map(
-          (p) => html`
-            <button
-              class="list-row ${p.id === currentId ? "selected" : ""}"
-              @click=${() => onPick(p.id)}
-            >
-              ${p.name}
-              ${p.id === currentId
-                ? html`<ha-icon icon="mdi:check"></ha-icon>`
-                : nothing}
-            </button>
-          `,
-        )}
+        <div class="profile-radio-list" role="radiogroup">
+          ${profiles.map(
+            (p) => html`
+              <label class="profile-radio ${p.id === pendingId ? "selected" : ""}">
+                <input
+                  type="radio"
+                  name="quality-profile"
+                  .checked=${p.id === pendingId}
+                  @change=${() => onSelect(p.id)}
+                />
+                <span class="profile-radio-body">
+                  <span class="profile-name"
+                    >${p.name}
+                    ${p.id === currentId ? html` · current` : nothing}</span
+                  >
+                  <span class="profile-summary">${profileSummaryLine(p)}</span>
+                </span>
+              </label>
+            `,
+          )}
+        </div>
+        <div class="dialog-actions">
+          <button class="text" @click=${onClose}>Cancel</button>
+          <button
+            class="primary"
+            ?disabled=${!changed || busy}
+            @click=${onSave}
+          >
+            ${busy ? "Saving…" : "Save profile"}
+          </button>
+        </div>
       </div>
     </div>
   `;
