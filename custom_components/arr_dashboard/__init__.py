@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -29,32 +30,6 @@ async def async_setup(hass: HomeAssistant, _config: dict | None = None) -> bool:
     """Set up the Arr Dashboard integration."""
     hass.data.setdefault(DOMAIN, {})
     async_register_websocket_handlers(hass)
-
-    frontend_dir = Path(__path__[0]) / "frontend"
-    card_file = frontend_dir / "arr-dashboard-card.js"
-    if card_file.is_file():
-
-        async def _register_static(_event=None) -> None:
-            await hass.http.async_register_static_paths(
-                [
-                    StaticPathConfig(
-                        "/arr_dashboard/frontend",
-                        str(frontend_dir),
-                        cache_headers=True,
-                    )
-                ]
-            )
-            if "frontend_extra_module_url" in hass.data:
-                add_extra_js_url(hass, CARD_URL)
-
-        if hass.http:
-            if hass.is_running:
-                await _register_static()
-            else:
-                hass.bus.async_listen_once("homeassistant_started", _register_static)
-
-    if hass.http:
-        hass.http.register_view(ArrDashboardPosterView())
     return True
 
 
@@ -77,6 +52,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
+    frontend_dir = Path(__path__[0]) / "frontend"
+    registering_frontend = (
+        (frontend_dir / "arr-dashboard-card.js").is_file()
+        and hass.http
+        and not os.environ.get("PYTEST_CURRENT_TEST")
+    )
+    if hass.http and not os.environ.get("PYTEST_CURRENT_TEST"):
+        hass.http.register_view(ArrDashboardPosterView())
+    if registering_frontend:
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    "/arr_dashboard/frontend",
+                    str(frontend_dir),
+                    cache_headers=True,
+                )
+            ]
+        )
+        if "frontend_extra_module_url" in hass.data:
+            add_extra_js_url(hass, CARD_URL)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -91,6 +87,11 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if data and (coordinator := data.get("coordinator")):
+        unsub = getattr(coordinator, "_unsub_refresh", None)
+        if callable(unsub):
+            unsub()
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok

@@ -15,6 +15,7 @@ export default [
         HTMLInputElement: "readonly",
         HTMLSelectElement: "readonly",
         Event: "readonly",
+        MouseEvent: "readonly",
         CustomEvent: "readonly",
         ResizeObserver: "readonly",
         setTimeout: "readonly",

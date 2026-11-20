@@ -90,16 +90,16 @@ async def test_download_failed_event(hass: HomeAssistant, radarr_config: dict) -
     entry = MockConfigEntry(domain=DOMAIN, data=radarr_config, title="Radarr")
     entry.add_to_hass(hass)
     coord = RadarrDataUpdateCoordinator(hass, client, entry)
-    coord._seen_failed.clear()
-    await coord._detect_failed_downloads(
+    coord._process_queue_events(
         [
             {
                 "id": 101,
                 "status": "failed",
-                "movie": {"title": "Bad Movie", "year": 2020},
+                "movie": {"title": "Bad Movie", "year": 2020, "id": 1},
                 "quality": {"quality": {"name": "1080p"}},
             }
-        ]
+        ],
+        [],
     )
     assert 101 in coord._seen_failed
-    assert EVENT_DOWNLOAD_FAILED == "arr_dashboard_download_failed"
+    assert EVENT_DOWNLOAD_FAILED == "arr_download_failed"

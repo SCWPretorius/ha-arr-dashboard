@@ -29,9 +29,10 @@ SERVICE_REMOVE_MOVIE = "remove_movie"
 SERVICE_SET_MONITORED = "set_monitored"
 SERVICE_SET_QUALITY_PROFILE = "set_quality_profile"
 
-EVENT_DOWNLOAD_FAILED = "arr_dashboard_download_failed"
-EVENT_DOWNLOAD_COMPLETED = "arr_dashboard_download_completed"
-EVENT_MOVIE_ADDED = "arr_dashboard_movie_added"
-EVENT_HEALTH_ISSUE = "arr_dashboard_health_issue"
+# Spec §12 event names (HA automations)
+EVENT_DOWNLOAD_FAILED = "arr_download_failed"
+EVENT_DOWNLOAD_COMPLETED = "arr_download_completed"
+EVENT_MOVIE_ADDED = "arr_movie_added"
+EVENT_HEALTH_ISSUE = "arr_health_issue"
 
 RADARR_MIN_VERSION_STR = "4.0.0"

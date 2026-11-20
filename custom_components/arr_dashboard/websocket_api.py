@@ -9,8 +9,9 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from .const import WS_TYPE_ARR_DASHBOARD
+from .const import EVENT_MOVIE_ADDED, WS_TYPE_ARR_DASHBOARD
 from .core.client import ArrNotFound
+from .core.events import movie_event_base
 from .helpers import get_coordinator_for_entry, get_radarr_client
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,6 +94,14 @@ async def _handle_command(
             from .radarr.actions import async_add_movie
 
             movie = await async_add_movie(client, data)
+            hass.bus.async_fire(
+                EVENT_MOVIE_ADDED,
+                movie_event_base(
+                    coordinator.config_entry.title,
+                    movie.get("title"),
+                    movie.get("year"),
+                ),
+            )
             await coordinator.async_request_refresh()
             return {"movie": movie}
         case "movie_search":

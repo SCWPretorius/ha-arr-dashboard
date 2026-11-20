@@ -8,11 +8,17 @@ from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from ..const import DOMAIN, EVENT_DOWNLOAD_FAILED, MEDIA_TYPE_MOVIE
+from ..const import (
+    DOMAIN,
+    EVENT_DOWNLOAD_COMPLETED,
+    EVENT_DOWNLOAD_FAILED,
+    EVENT_HEALTH_ISSUE,
+)
 from ..core.client import ArrCannotConnect, ArrClientError, ArrInvalidAuth
+from ..core.events import movie_event_base
 from .client import RadarrClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +38,17 @@ class ArrDashboardData:
     system: dict[str, Any] = field(default_factory=dict)
     reachable: bool = True
     last_success: datetime | None = None
+
+
+@dataclass(frozen=True)
+class _QueueSnap:
+    queue_id: int
+    movie_id: int | None
+    title: str | None
+    year: int | None
+    quality: str | None
+    size: int | None
+    active: bool
 
 
 def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
@@ -63,7 +80,47 @@ def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
         "overview": movie.get("overview"),
         "runtime": movie.get("runtime"),
         "certification": movie.get("certification"),
+        "movieFile": movie.get("movieFile"),
     }
+
+
+def _queue_snap(item: dict[str, Any]) -> _QueueSnap:
+    movie = item.get("movie") or {}
+    st = (item.get("status") or "").lower()
+    tracked = (
+        item.get("trackedDownloadState")
+        or item.get("trackedDownloadStatus")
+        or ""
+    ).lower()
+    active = st in {"downloading", "queued", "warning"} or tracked in {
+        "importing",
+        "importpending",
+        "importblocked",
+    }
+    quality = (item.get("quality") or {}).get("quality", {}).get("name")
+    return _QueueSnap(
+        queue_id=int(item["id"]),
+        movie_id=movie.get("id"),
+        title=movie.get("title"),
+        year=movie.get("year"),
+        quality=quality,
+        size=item.get("size"),
+        active=active,
+    )
+
+
+def _is_failed(item: dict[str, Any]) -> bool:
+    status = (item.get("status") or "").lower()
+    tracked = (
+        item.get("trackedDownloadState")
+        or item.get("trackedDownloadStatus")
+        or ""
+    ).lower()
+    return status == "failed" or tracked in ("failed", "failedpending")
+
+
+def _health_key(item: dict[str, Any]) -> str:
+    return f"{item.get('source', '')}:{item.get('message', '')}"
 
 
 class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
@@ -79,6 +136,10 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
     ) -> None:
         self.client = client
         self._seen_failed: set[int] = set()
+        self._seen_completed: set[int] = set()
+        self._seen_health: set[str] = set()
+        self._prev_queue: dict[int, _QueueSnap] = {}
+        self._active_health: set[str] = set()
         super().__init__(
             hass,
             _LOGGER,
@@ -112,7 +173,8 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
             data.quality_profiles = profiles
             data.reachable = True
             data.last_success = datetime.now(UTC)
-            await self._detect_failed_downloads(records)
+            self._process_queue_events(records, data.movies)
+            self._process_health_events(health)
         except ArrInvalidAuth as err:
             self.config_entry.async_start_reauth(self.hass)
             raise UpdateFailed("Authentication failed") from err
@@ -125,39 +187,81 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
             raise UpdateFailed(str(err)) from err
         return data
 
-    async def _detect_failed_downloads(self, records: list[dict[str, Any]]) -> None:
+    @callback
+    def _fire(self, event_type: str, data: dict[str, Any]) -> None:
+        self.hass.bus.async_fire(event_type, data)
+
+    def _process_queue_events(
+        self,
+        records: list[dict[str, Any]],
+        movies: list[dict[str, Any]],
+    ) -> None:
+        current: dict[int, _QueueSnap] = {}
         for item in records:
-            status = item.get("status")
-            tracked = (
-                item.get("trackedDownloadState")
-                or item.get("trackedDownloadStatus")
-                or ""
-            ).lower()
             qid = item.get("id")
             if qid is None:
                 continue
-            failed = status == "failed" or tracked in (
-                "failed",
-                "failedpending",
-            )
-            if not failed or qid in self._seen_failed:
-                continue
-            self._seen_failed.add(qid)
-            movie = item.get("movie") or {}
-            self.hass.bus.async_fire(
-                EVENT_DOWNLOAD_FAILED,
-                {
-                    "instance": self.config_entry.title,
-                    "entry_id": self.config_entry.entry_id,
-                    "media_type": MEDIA_TYPE_MOVIE,
-                    "title": movie.get("title"),
-                    "year": movie.get("year"),
-                    "quality": (item.get("quality") or {}).get("quality", {}).get(
-                        "name"
+            snap = _queue_snap(item)
+            current[int(qid)] = snap
+            if _is_failed(item) and int(qid) not in self._seen_failed:
+                self._seen_failed.add(int(qid))
+                reason = item.get("statusMessages") or item.get("errorMessage")
+                if isinstance(reason, list):
+                    reason = ", ".join(str(r) for r in reason)
+                self._fire(
+                    EVENT_DOWNLOAD_FAILED,
+                    movie_event_base(
+                        self.config_entry.title,
+                        snap.title,
+                        snap.year,
+                        quality=snap.quality,
+                        size=snap.size,
+                        reason=str(reason) if reason else None,
                     ),
-                    "reason": item.get("statusMessages") or item.get("errorMessage"),
-                },
-            )
+                )
+
+        removed = set(self._prev_queue.keys()) - set(current.keys())
+        movies_by_id = {m["id"]: m for m in movies}
+        for qid in removed:
+            prev = self._prev_queue[qid]
+            if not prev.active or qid in self._seen_completed:
+                continue
+            movie = movies_by_id.get(prev.movie_id or 0)
+            if movie and movie.get("hasFile"):
+                self._seen_completed.add(qid)
+                size = movie.get("sizeOnDisk")
+                self._fire(
+                    EVENT_DOWNLOAD_COMPLETED,
+                    movie_event_base(
+                        self.config_entry.title,
+                        prev.title,
+                        prev.year,
+                        quality=movie.get("quality") or prev.quality,
+                        size=size,
+                    ),
+                )
+
+        self._prev_queue = current
+
+    def _process_health_events(self, health: list[dict[str, Any]]) -> None:
+        current_keys: set[str] = set()
+        for item in health:
+            if item.get("type") not in ("warning", "error"):
+                continue
+            key = _health_key(item)
+            current_keys.add(key)
+            if key not in self._active_health and key not in self._seen_health:
+                self._seen_health.add(key)
+                self._fire(
+                    EVENT_HEALTH_ISSUE,
+                    movie_event_base(
+                        self.config_entry.title,
+                        item.get("source"),
+                        None,
+                        reason=item.get("message"),
+                    ),
+                )
+        self._active_health = current_keys
 
     async def async_request_refresh_movies(self) -> None:
         await self.async_request_refresh()

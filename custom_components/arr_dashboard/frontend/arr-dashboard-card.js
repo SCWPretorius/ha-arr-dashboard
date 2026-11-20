@@ -72,27 +72,37 @@ const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);
  * SPDX-License-Identifier: BSD-3-Clause
  */function r(r){return n({...r,state:true,attribute:false})}
 
-function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles, setBlockRelease, setSearchAgain, setRemoveFromClient) {
+function formatSize(bytes) {
+    if (!bytes)
+        return "";
+    const gb = bytes / 1e9;
+    return `${gb.toFixed(1)} GB`;
+}
+function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles, setBlockRelease, setSearchAgain, setRemoveFromClient, setAddImportExclusion) {
     if (!confirm?.kind)
         return A;
     const p = confirm.payload;
     const title = p.title;
     const year = p.year;
-    const titles = {
-        m09: "Delete file and redownload?",
-        m10: `Remove ${title}?`,
-        d04: "Remove and blocklist this download?",
-        d04b: "Remove this download?",
-        m06: "Grab a rejected release?",
-    };
+    const quality = p.quality;
+    const size = p.size;
+    let heading = "";
     let body = "";
     let actionLabel = "Confirm";
     let danger = true;
     let options = A;
     switch (confirm.kind) {
         case "m09":
-            body =
-                "This deletes the movie file from disk. Radarr then searches for a new copy. You can't watch it until the new download finishes.";
+            heading = "Delete file and redownload?";
+            body = b `
+        <p>
+          This deletes <strong>${title}${year ? ` (${year})` : ""}</strong>
+          ${quality ? ` · ${quality}` : ""}
+          ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
+          searches for a new copy.
+        </p>
+        <p>You can't watch it until the new download finishes.</p>
+      `;
             actionLabel = "Delete file & redownload";
             if (p.showBlockCheckbox) {
                 options = b `
@@ -104,12 +114,18 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
             />
             Block this release so it isn't downloaded again.
           </label>
+          <p class="hint-muted">Recommended if the file was bad.</p>
         `;
             }
             break;
         case "m10":
-            body =
-                "Radarr stops tracking this movie. The files stay on disk unless you tick the box below.";
+            heading = `Remove ${title}?`;
+            body = b `
+        <p>
+          Radarr stops tracking this movie.
+          <strong>The files stay on disk</strong> unless you tick the box below.
+        </p>
+      `;
             actionLabel = confirm.deleteFiles
                 ? "Remove movie & delete files"
                 : "Remove movie";
@@ -121,12 +137,28 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
             @change=${(e) => setDeleteFiles(e.target.checked)}
           />
           Also delete the movie files
+          ${size ? `(${formatSize(size)})` : ""}
         </label>
         <p class="hint-muted">Leave unticked to keep the files.</p>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.addImportExclusion ?? false}
+            @change=${(e) => setAddImportExclusion(e.target.checked)}
+          />
+          Don't add it again from lists
+        </label>
       `;
             break;
         case "d04":
-            body = `${title}${year ? ` (${year})` : ""} is removed from the download client and this release is blocked.`;
+            heading = "Remove and blocklist this download?";
+            body = b `
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the download client and this release is blocked so it isn't grabbed
+          again.
+        </p>
+      `;
             actionLabel = "Remove & blocklist";
             options = b `
         <label>
@@ -148,7 +180,13 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
       `;
             break;
         case "d04b":
-            body = `${title}${year ? ` (${year})` : ""} is removed from the queue. Radarr may grab the same release again.`;
+            heading = "Remove this download?";
+            body = b `
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the queue. Radarr may grab the same release again.
+        </p>
+      `;
             actionLabel = "Remove download";
             options = b `
         <label>
@@ -162,7 +200,11 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
       `;
             break;
         case "m06":
-            body = `Radarr rejected this release: ${p.reasons ?? ""}`;
+            heading = "Grab a rejected release?";
+            body = b `
+        <p>Radarr rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
+        <p class="mono">${p.releaseName ?? ""} · ${formatSize(p.size)}</p>
+      `;
             actionLabel = "Grab anyway";
             danger = false;
             break;
@@ -180,11 +222,21 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
             onCancel();
     }}
     >
-      <h2 id="confirm-title">${titles[confirm.kind]}</h2>
-      <p>${body}</p>
+      <ha-icon
+        icon="mdi:alert-outline"
+        class="danger-icon"
+        style="color: var(--error-color)"
+      ></ha-icon>
+      <h2 id="confirm-title">${heading}</h2>
+      ${typeof body === "string" ? b `<p>${body}</p>` : body}
       ${options}
       <div class="dialog-actions">
-        <button class="text" ?disabled=${busy} @click=${onCancel}>
+        <button
+          class="text"
+          ?disabled=${busy}
+          @click=${onCancel}
+          autofocus
+        >
           Cancel
         </button>
         <button
@@ -193,12 +245,442 @@ function renderConfirmDialog(confirm, busy, onCancel, onConfirm, setDeleteFiles,
           aria-busy=${busy ? "true" : "false"}
           @click=${onConfirm}
         >
-          ${busy ? "Working…" : actionLabel}
+          <ha-icon icon=${danger ? "mdi:delete-forever" : "mdi:download"}></ha-icon>
+          ${busy
+        ? kindBusyLabel(confirm.kind)
+        : actionLabel}
         </button>
       </div>
     </dialog>
   `;
 }
+function kindBusyLabel(kind) {
+    switch (kind) {
+        case "m09":
+            return "Deleting…";
+        case "m10":
+            return "Removing…";
+        case "d04":
+        case "d04b":
+            return "Removing…";
+        case "m06":
+            return "Sending…";
+        default:
+            return "Working…";
+    }
+}
+
+function formatBytes(bytes) {
+    if (!bytes)
+        return "";
+    if (bytes >= 1e9)
+        return `${(bytes / 1e9).toFixed(1)} GB`;
+    if (bytes >= 1e6)
+        return `${(bytes / 1e6).toFixed(0)} MB`;
+    return `${bytes} B`;
+}
+function formatRelative(iso) {
+    if (!iso)
+        return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime()))
+        return iso;
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 2)
+        return "just now";
+    if (mins < 60)
+        return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 48)
+        return `${hrs} hr ago`;
+    return d.toLocaleDateString();
+}
+function queueProgress(row) {
+    const size = row.size ?? 0;
+    const left = row.sizeleft ?? size;
+    if (!size)
+        return 0;
+    return Math.min(100, Math.max(0, Math.round(((size - left) / size) * 100)));
+}
+function queueStatusLabel(row) {
+    const st = row.status ?? "Queued";
+    const tr = row.trackedDownloadStatus;
+    if (tr && tr !== st)
+        return `${st} · ${tr}`;
+    return st;
+}
+
+function inLibrary(movies, hit) {
+    if (hit.tmdbId) {
+        const m = movies.find((x) => x.tmdbId === hit.tmdbId);
+        if (m)
+            return m;
+    }
+    const t = (hit.title ?? "").toLowerCase();
+    return movies.find((x) => x.title?.toLowerCase() === t && x.year === hit.year);
+}
+function filterMovies(movies, chip, search, queue) {
+    let list = [...movies];
+    const q = search.trim().toLowerCase();
+    if (q) {
+        list = list.filter((m) => m.title?.toLowerCase().includes(q));
+    }
+    if (chip === "missing") {
+        list = list.filter((m) => !m.hasFile);
+    }
+    else if (chip === "downloaded") {
+        list = list.filter((m) => m.hasFile);
+    }
+    else if (chip === "in_queue") {
+        const ids = new Set(queue.map((r) => r.movie?.id).filter((id) => id != null));
+        list = list.filter((m) => ids.has(m.id));
+    }
+    return list;
+}
+function sortMovies(movies, sort) {
+    const list = [...movies];
+    switch (sort) {
+        case "added":
+            list.sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""));
+            break;
+        case "year":
+            list.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+            break;
+        case "title":
+        default:
+            list.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", undefined, {
+                sensitivity: "base",
+            }));
+            break;
+    }
+    return list;
+}
+function upcomingMovies(movies, _days) {
+    return movies.filter((m) => {
+        const st = (m.status ?? "").toLowerCase();
+        return st === "incinemas" || st === "announced" || st === "in cinemas";
+    }).slice(0, 12);
+}
+function recentMovies(movies, days) {
+    const since = Date.now() - days * 86400000;
+    return movies
+        .filter((m) => {
+        if (!m.added)
+            return false;
+        return new Date(m.added).getTime() >= since;
+    })
+        .sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""))
+        .slice(0, 12);
+}
+function indexLetters(movies) {
+    const letters = new Set();
+    for (const m of movies) {
+        const ch = (m.title ?? "?")[0]?.toUpperCase();
+        if (ch && /[A-Z]/.test(ch))
+            letters.add(ch);
+        else
+            letters.add("#");
+    }
+    return [...letters].sort();
+}
+
+function renderStatusSheet(open, health, disks, config, onClose) {
+    if (!open)
+        return A;
+    const link = config.external_link;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="G02"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Radarr status">
+        <div class="sheet-header">
+          <h2>Status</h2>
+          <button class="text" @click=${onClose}>Close</button>
+        </div>
+        <section>
+          <h3>Health</h3>
+          ${health.length
+        ? health.map((h) => b `
+                  <p class="status-line">
+                    <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+                    ${h.message}
+                  </p>
+                `)
+        : b `<p class="hint-muted">No health warnings.</p>`}
+        </section>
+        <section>
+          <h3>Disk</h3>
+          ${disks.map((d) => b `
+              <p class="status-line mono">
+                ${d.path}: ${formatBytes(d.freeSpace)} free /
+                ${formatBytes(d.totalSpace)}
+              </p>
+            `)}
+        </section>
+        ${link
+        ? b `
+              <a
+                class="primary link-button"
+                href=${String(link)}
+                target="_blank"
+                rel="noopener"
+              >
+                Open Radarr
+              </a>
+            `
+        : A}
+      </div>
+    </div>
+  `;
+}
+function renderFailureSheet(title, detail, onClose) {
+    if (!detail)
+        return A;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="G05"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Failure details">
+        <h2>${title}</h2>
+        <p class="mono">${detail}</p>
+        <button class="primary" @click=${onClose}>Close</button>
+      </div>
+    </div>
+  `;
+}
+function renderAddSheet(open, pick, profiles, roots, profileId, rootPath, searchOnAdd, monitored, minAvailability, busy, offline, setProfile, setRoot, setSearchOnAdd, setMonitored, setMinAvail, onCancel, onConfirm) {
+    if (!open || !pick)
+        return A;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="A05"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onCancel();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Add movie">
+        <h2>Add ${pick.title}${pick.year ? ` (${pick.year})` : ""}</h2>
+        <label>
+          Quality profile
+          <select
+            .value=${String(profileId ?? "")}
+            @change=${(e) => setProfile(Number(e.target.value))}
+          >
+            ${profiles.map((p) => b `
+                <option value=${p.id} ?selected=${p.id === profileId}>
+                  ${p.name}
+                </option>
+              `)}
+          </select>
+        </label>
+        <label>
+          Root folder
+          <select
+            .value=${rootPath ?? ""}
+            @change=${(e) => setRoot(e.target.value)}
+          >
+            ${roots.map((f) => b `
+                <option value=${f.path} ?selected=${f.path === rootPath}>
+                  ${f.path}
+                </option>
+              `)}
+          </select>
+        </label>
+        <label>
+          Minimum availability
+          <select
+            .value=${minAvailability}
+            @change=${(e) => setMinAvail(e.target.value)}
+          >
+            <option value="announced">Announced</option>
+            <option value="inCinemas">In cinemas</option>
+            <option value="released">Released</option>
+          </select>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${searchOnAdd}
+            @change=${(e) => setSearchOnAdd(e.target.checked)}
+          />
+          Search for download after adding
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${monitored}
+            @change=${(e) => setMonitored(e.target.checked)}
+          />
+          Monitored
+        </label>
+        <div class="dialog-actions">
+          <button class="text" @click=${onCancel}>Cancel</button>
+          <button
+            class="primary"
+            data-action="add-movie"
+            ?disabled=${offline || busy}
+            @click=${onConfirm}
+          >
+            ${busy ? "Adding…" : "Add movie"}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderQualitySheet(open, profiles, currentId, searchAfter, setSearch, onPick, onClose) {
+    if (!open)
+        return A;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="M08"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Quality profile">
+        <h2>Quality profile</h2>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${searchAfter}
+            @change=${(e) => setSearch(e.target.checked)}
+          />
+          Search after changing profile
+        </label>
+        ${profiles.map((p) => b `
+            <button
+              class="list-row ${p.id === currentId ? "selected" : ""}"
+              @click=${() => onPick(p.id)}
+            >
+              ${p.name}
+              ${p.id === currentId
+        ? b `<ha-icon icon="mdi:check"></ha-icon>`
+        : A}
+            </button>
+          `)}
+      </div>
+    </div>
+  `;
+}
+function renderQueueOverflowSheet(open, title, year, hideDestructive, offline, onClose, onRemove, onBlocklist) {
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="D03"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Download actions">
+        <h2>${title}${year ? ` (${year})` : ""}</h2>
+        ${hideDestructive
+        ? b `<p class="hint-muted">
+              Removing is turned off on this dashboard.
+            </p>`
+        : b `
+              <button
+                class="outline-danger"
+                data-action="queue-remove"
+                ?disabled=${offline}
+                @click=${onRemove}
+              >
+                Remove download
+              </button>
+              <button
+                class="outline-danger"
+                ?disabled=${offline}
+                @click=${onBlocklist}
+              >
+                Remove & blocklist
+              </button>
+            `}
+        <button class="text" @click=${onClose}>Close</button>
+      </div>
+    </div>
+  `;
+}
+
+/** Spec §10 confirm and §11 toast copy (exact labels). */
+function toastAdded(title, searchOn) {
+    return searchOn
+        ? `Added ${title}. Searching for a download…`
+        : `Added ${title}. It won't download until you search.`;
+}
+function toastSearchAgain(title) {
+    return `Searching for ${title}…`;
+}
+function toastGrab() {
+    return "Sent to download client. Watch it in Downloading.";
+}
+function toastRemoveSearchAgain(title) {
+    return `Removed ${title} and blocked the release. Searching for another…`;
+}
+function toastRemoveQueue(title) {
+    return `Removed ${title} from downloads.`;
+}
+function toastRemoveBlocklist(title, search) {
+    return search
+        ? `Removed ${title} and blocked the release. Searching for another…`
+        : `Removed ${title} and blocked the release.`;
+}
+function toastRetryImport(title) {
+    return `Retrying import for ${title}…`;
+}
+function toastProfile(name, searching) {
+    return searching
+        ? `Quality profile set to ${name}. Searching…`
+        : `Quality profile set to ${name}.`;
+}
+function toastMonitorOn(title) {
+    return `Monitoring on for ${title}.`;
+}
+function toastMonitorOff(title) {
+    return `Monitoring off for ${title}. Radarr won't download or upgrade it.`;
+}
+function toastDeleteRedownload(title) {
+    return `Deleted the file. Searching for a new copy of ${title}…`;
+}
+function toastRemoveMovie(title, deleted) {
+    return deleted
+        ? `Removed ${title} and deleted its files.`
+        : `Removed ${title}.`;
+}
+function toastGone() {
+    return "That movie was already removed.";
+}
+function toastRadarrBack() {
+    return "Radarr is back.";
+}
+const FAILURE_VERBS = {
+    add_movie: "add the movie",
+    movie_search: "start the search",
+    grab_release: "send the release",
+    queue_remove: "remove the download",
+    retry_import: "retry the import",
+    set_quality_profile: "change the profile",
+    set_monitored: "update monitoring",
+    delete_file_redownload: "delete the file",
+    remove_movie: "remove the movie",
+};
 
 const cardStyles = i$3 `
   :host {
@@ -499,7 +981,429 @@ const cardStyles = i$3 `
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
+
+  .layout-body {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .main-pane {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .with-side-panel .main-pane {
+    flex: 1 1 55%;
+  }
+
+  .side-panel {
+    flex: 0 0 40%;
+    max-width: 420px;
+    border-left: 1px solid var(--divider-color);
+    padding-left: 16px;
+    max-height: 70vh;
+    overflow: auto;
+  }
+
+  .compact ha-card {
+    padding: 10px;
+  }
+
+  .compact .header .title-row {
+    font-size: 1rem;
+  }
+
+  .mono {
+    font-family: var(--code-font-family, monospace);
+    font-size: 0.85rem;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: var(--divider-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+  }
+
+  .queue-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .queue-meta {
+    color: var(--secondary-text-color);
+    font-size: 0.85rem;
+  }
+
+  .queue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .overflow-btn {
+    align-self: flex-start;
+    font-size: 1.25rem;
+  }
+
+  .pill.ok {
+    color: var(--arr-ok-text);
+    background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+
+  .filter-chip {
+    border: 1px solid var(--divider-color);
+    background: var(--card-background-color);
+    border-radius: 16px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font: inherit;
+    min-height: 36px;
+  }
+
+  .filter-chip.active {
+    border-color: var(--primary-color);
+    color: var(--arr-accent-text);
+  }
+
+  .sort-select {
+    margin-left: auto;
+    padding: 6px;
+    font: inherit;
+  }
+
+  .list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 8px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .list-row.selected {
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  }
+
+  .list-row .thumb {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+
+  .poster-btn.small img {
+    width: 80px;
+  }
+
+  .h-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .row-section h3 {
+    margin: 8px 0;
+    font-size: 1rem;
+  }
+
+  .library-with-rail {
+    display: flex;
+    gap: 8px;
+  }
+
+  .az-rail {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.7rem;
+    color: var(--secondary-text-color);
+    padding: 4px;
+    user-select: none;
+  }
+
+  .skeleton-block,
+  .skeleton-list {
+    min-height: 120px;
+    background: linear-gradient(
+      90deg,
+      var(--divider-color) 25%,
+      transparent 50%,
+      var(--divider-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 4px;
+    margin: 12px 0;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .lookup-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 10;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .layout-tablet .sheet-backdrop {
+    align-items: center;
+  }
+
+  .sheet-panel {
+    width: min(520px, 100%);
+    max-height: 85vh;
+    overflow: auto;
+    background: var(--card-background-color);
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    box-shadow: var(--ha-card-box-shadow, 0 -4px 24px rgba(0, 0, 0, 0.2));
+  }
+
+  .layout-tablet .sheet-panel {
+    border-radius: 12px;
+  }
+
+  .sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-line {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 8px 0;
+  }
+
+  .link-button {
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  .detail-dialog,
+  .release-dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    max-width: min(640px, 95vw);
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    box-shadow: var(--ha-card-box-shadow, 0 4px 24px rgba(0, 0, 0, 0.2));
+    margin-top: 12px;
+  }
+
+  .detail-poster {
+    max-width: 160px;
+    border-radius: 4px;
+    float: left;
+    margin: 0 12px 12px 0;
+  }
+
+  .detail-dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 0.9rem;
+  }
+
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .overview {
+    clear: both;
+    color: var(--secondary-text-color);
+    font-size: 0.9rem;
+  }
+
+  .release-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .release-row.rejected {
+    opacity: 0.85;
+  }
+
+  .error-text {
+    color: var(--error-color);
+  }
+
+  .danger-icon {
+    margin-bottom: 8px;
+  }
 `;
+
+function showToast(el, message, actionText, onAction) {
+    el.dispatchEvent(new CustomEvent("hass-notification", {
+        bubbles: true,
+        composed: true,
+        detail: {
+            message,
+            duration: actionText ? 8000 : 4000,
+            action: actionText
+                ? {
+                    text: actionText,
+                    action: () => {
+                    },
+                }
+                : undefined,
+        },
+    }));
+}
+function showActionFailure(el, command, err) {
+    const verb = FAILURE_VERBS[command] ?? "complete the action";
+    const message = err instanceof Error ? err.message : String(err);
+    showToast(el, `Couldn't ${verb}. Radarr said: ${message}`, "Details");
+}
+
+let ArrVirtualList = class ArrVirtualList extends i {
+    constructor() {
+        super(...arguments);
+        this.itemHeight = 72;
+        this.itemCount = 0;
+        this._scrollTop = 0;
+        this._height = 400;
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this._onScrollBound = this._onScroll.bind(this);
+        this.addEventListener("scroll", this._onScrollBound);
+        this._ro = new ResizeObserver(() => {
+            this._height = this.clientHeight;
+        });
+        this._ro.observe(this);
+    }
+    disconnectedCallback() {
+        if (this._onScrollBound) {
+            this.removeEventListener("scroll", this._onScrollBound);
+        }
+        this._ro?.disconnect();
+        super.disconnectedCallback();
+    }
+    _onScroll() {
+        this._scrollTop = this.scrollTop;
+    }
+    render() {
+        const buffer = this.itemHeight * 4;
+        const total = this.itemCount * this.itemHeight;
+        const start = Math.max(0, Math.floor((this._scrollTop - buffer) / this.itemHeight));
+        const visible = Math.ceil((this._height + buffer * 2) / this.itemHeight);
+        const end = Math.min(this.itemCount, start + visible);
+        const items = [];
+        for (let i = start; i < end; i++) {
+            items.push(this.renderItem(i));
+        }
+        return b `
+      <div class="viewport">
+        <div class="spacer" style="height: ${total}px"></div>
+        <div
+          class="window"
+          style="transform: translateY(${start * this.itemHeight}px)"
+        >
+          ${items}
+        </div>
+      </div>
+    `;
+    }
+};
+ArrVirtualList.styles = i$3 `
+    :host {
+      display: block;
+      position: relative;
+      overflow: auto;
+      max-height: var(--arr-virtual-height, 480px);
+    }
+    .viewport {
+      position: relative;
+      width: 100%;
+    }
+    .spacer {
+      width: 100%;
+      pointer-events: none;
+    }
+    .window {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+    }
+  `;
+__decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "itemHeight", void 0);
+__decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "itemCount", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrVirtualList.prototype, "renderItem", void 0);
+__decorate([
+    r()
+], ArrVirtualList.prototype, "_scrollTop", void 0);
+__decorate([
+    r()
+], ArrVirtualList.prototype, "_height", void 0);
+ArrVirtualList = __decorate([
+    t("arr-virtual-list")
+], ArrVirtualList);
 
 async function callArr(hass, entryId, command, data) {
     return hass.callWS({
@@ -544,71 +1448,268 @@ let ArrCardEditor = class ArrCardEditor extends i {
             composed: true,
         }));
     }
+    _toggleTab(tab, on) {
+        const cur = [...(this._value("tabs") ?? ["add", "downloading", "library"])];
+        const next = on
+            ? [...new Set([...cur, tab])]
+            : cur.filter((t) => t !== tab);
+        if (next.length)
+            this._set("tabs", next);
+    }
+    _toggleChip(chip, on) {
+        const cur = [...(this._value("show_header_chips") ?? ["disk", "queue", "health"])];
+        const next = on
+            ? [...new Set([...cur, chip])]
+            : cur.filter((c) => c !== chip);
+        this._set("show_header_chips", next);
+    }
+    _toggleRow(row, on) {
+        const cur = [...(this._value("show_rows") ?? [])];
+        const next = on ? [...new Set([...cur, row])] : cur.filter((r) => r !== row);
+        this._set("show_rows", next);
+    }
     render() {
+        const tabs = this._value("tabs") ?? ["add", "downloading", "library"];
+        const ad = this._value("add_defaults") ?? {};
         const hide = Boolean(this._value("hide_destructive_actions"));
         return b `
       <div class="card-config">
-        <h3>General</h3>
-        <label>
-          Title
-          <input
-            .value=${String(this._value("title") ?? "Movies")}
-            @change=${(e) => this._set("title", e.target.value)}
-          />
-        </label>
-        <label>
-          Instance
-          <input
-            .value=${String(this._value("instance") ?? "")}
-            @change=${(e) => this._set("instance", e.target.value)}
-          />
-        </label>
-        <label>
-          Default tab
-          <select
-            .value=${String(this._value("default_tab") ?? "library")}
-            @change=${(e) => this._set("default_tab", e.target.value)}
-          >
-            <option value="library">Library</option>
-            <option value="downloading">Downloading</option>
-            <option value="add">Add</option>
-          </select>
-        </label>
-        <h3>Safety</h3>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${hide}
-            @change=${(e) => this._set("hide_destructive_actions", e.target.checked)}
-          />
-          Hide fix and remove buttons on this dashboard
-        </label>
-        <p class="hint">
-          Hides buttons only. It doesn't change who is allowed to do what.
-        </p>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${this._value("add_defaults") &&
-            this._value("add_defaults")
-                .search_on_add !== false}
-            @change=${(e) => {
-            const ad = this._value("add_defaults") ?? {};
-            this._set("add_defaults", {
-                ...ad,
-                search_on_add: e.target.checked,
-            });
+          <h3>General</h3>
+          <label>
+            Title
+            <input
+              .value=${String(this._value("title") ?? "Movies")}
+              @change=${(e) => this._set("title", e.target.value)}
+            />
+          </label>
+          <label>
+            Icon (MDI)
+            <input
+              .value=${String(this._value("icon") ?? "mdi:movie-open")}
+              @change=${(e) => this._set("icon", e.target.value)}
+            />
+          </label>
+          <label>
+            Instance
+            <input
+              .value=${String(this._value("instance") ?? "")}
+              @change=${(e) => this._set("instance", e.target.value)}
+            />
+          </label>
+          <label>
+            Compact
+            <select
+              .value=${this._value("compact") === true
+            ? "true"
+            : this._value("compact") === false
+                ? "false"
+                : "auto"}
+              @change=${(e) => {
+            const v = e.target.value;
+            this._set("compact", v === "auto" ? "auto" : v === "true");
         }}
-          />
-          Start searching now (default for Add movie)
-        </label>
+            >
+              <option value="auto">Auto</option>
+              <option value="true">Always</option>
+              <option value="false">Never</option>
+            </select>
+          </label>
+          <label>
+            Layout
+            <select
+              .value=${String(this._value("layout") ?? "auto")}
+              @change=${(e) => this._set("layout", e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="phone">Phone</option>
+              <option value="tablet">Tablet</option>
+            </select>
+          </label>
+          <label>
+            Open Radarr URL (status sheet)
+            <input
+              .value=${String(this._value("external_link") === false
+            ? ""
+            : this._value("external_link") ?? "")}
+              @change=${(e) => {
+            const v = e.target.value.trim();
+            this._set("external_link", v ? v : false);
+        }}
+            />
+          </label>
+
+          <h3>Tabs</h3>
+          <label>
+            Default tab
+            <select
+              .value=${String(this._value("default_tab") ?? "library")}
+              @change=${(e) => this._set("default_tab", e.target.value)}
+            >
+              <option value="library">Library</option>
+              <option value="downloading">Downloading</option>
+              <option value="add">Add</option>
+            </select>
+          </label>
+          <p>Show tabs:</p>
+          ${["add", "downloading", "library"].map((t) => b `
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${tabs.includes(t)}
+                  @change=${(e) => this._toggleTab(t, e.target.checked)}
+                />
+                ${t}
+              </label>
+            `)}
+          <p>Header chips:</p>
+          ${["disk", "queue", "health"].map((c) => b `
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${(this._value("show_header_chips") ?? [
+            "disk",
+            "queue",
+            "health",
+        ]).includes(c)}
+                  @change=${(e) => this._toggleChip(c, e.target.checked)}
+                />
+                ${c}
+              </label>
+            `)}
+
+          <h3>Library</h3>
+          <p>Home rows:</p>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${(this._value("show_rows") ?? []).includes("upcoming")}
+              @change=${(e) => this._toggleRow("upcoming", e.target.checked)}
+            />
+            Upcoming
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${(this._value("show_rows") ?? []).includes("recent")}
+              @change=${(e) => this._toggleRow("recent", e.target.checked)}
+            />
+            Recent
+          </label>
+          <label>
+            Upcoming window (days)
+            <input
+              type="number"
+              min="1"
+              .value=${String(this._value("upcoming_days") ?? 14)}
+              @change=${(e) => this._set("upcoming_days", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Recent window (days)
+            <input
+              type="number"
+              min="1"
+              .value=${String(this._value("recent_days") ?? 7)}
+              @change=${(e) => this._set("recent_days", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Default view
+            <select
+              .value=${String(this._value("library_view") ?? "grid")}
+              @change=${(e) => this._set("library_view", e.target.value)}
+            >
+              <option value="grid">Grid</option>
+              <option value="list">List</option>
+            </select>
+          </label>
+          <label>
+            Default sort
+            <select
+              .value=${String(this._value("library_sort") ?? "title")}
+              @change=${(e) => this._set("library_sort", e.target.value)}
+            >
+              <option value="title">Title</option>
+              <option value="added">Added</option>
+              <option value="year">Year</option>
+            </select>
+          </label>
+          <label>
+            Default filter
+            <select
+              .value=${String(this._value("library_filter") ?? "all")}
+              @change=${(e) => this._set("library_filter", e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="missing">Missing</option>
+              <option value="downloaded">Downloaded</option>
+            </select>
+          </label>
+
+          <h3>Add defaults</h3>
+          <label>
+            Quality profile name
+            <input
+              .value=${String(ad.quality_profile ?? "")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            quality_profile: e.target.value,
+        })}
+            />
+          </label>
+          <label>
+            Root folder path
+            <input
+              .value=${String(ad.root_folder ?? "")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            root_folder: e.target.value,
+        })}
+            />
+          </label>
+          <label>
+            Minimum availability
+            <select
+              .value=${String(ad.minimum_availability ?? "released")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            minimum_availability: e.target.value,
+        })}
+            >
+              <option value="announced">Announced</option>
+              <option value="inCinemas">In cinemas</option>
+              <option value="released">Released</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${ad.search_on_add !== false}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            search_on_add: e.target.checked,
+        })}
+            />
+            Start searching now (default for Add movie)
+          </label>
+
+          <h3>Safety</h3>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${hide}
+              @change=${(e) => this._set("hide_destructive_actions", e.target.checked)}
+            />
+            Hide fix and remove buttons on this dashboard
+          </label>
+          <p class="hint">
+            Hides buttons only. It doesn't change who is allowed to do what in
+            Radarr.
+          </p>
       </div>
     `;
     }
 };
-__decorate([
-    n({ attribute: false })
-], ArrCardEditor.prototype, "hass", void 0);
 __decorate([
     n({ attribute: false })
 ], ArrCardEditor.prototype, "lovelace", void 0);
@@ -619,16 +1720,9 @@ ArrCardEditor = __decorate([
     t("arr-card-editor")
 ], ArrCardEditor);
 
-function fireToast(el, message, action) {
-    el.dispatchEvent(new CustomEvent("hass-notification", {
-        bubbles: true,
-        composed: true,
-        detail: {
-            message,
-            action: undefined,
-        },
-    }));
-}
+const LOOKUP_DEBOUNCE_MS = 400;
+const RELEASE_CACHE_MS = 5 * 60 * 1000;
+const VIRTUAL_THRESHOLD = 50;
 function queueNeedsAttention(item) {
     const st = (item.status || "").toLowerCase();
     const tr = (item.trackedDownloadStatus || "").toLowerCase();
@@ -646,11 +1740,29 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._confirm = null;
         this._confirmBusy = false;
         this._addQuery = "";
+        this._addPhase = "start";
         this._lookupResults = [];
-        this._libraryFilter = "all";
+        this._addError = "";
+        this._addSheetOpen = false;
+        this._addSearchOn = true;
+        this._addMonitored = true;
+        this._addMinAvail = "released";
+        this._addBusy = false;
+        this._libraryChip = "all";
         this._librarySearch = "";
+        this._librarySort = "title";
+        this._libraryView = "grid";
         this._compact = false;
+        this._statusOpen = false;
+        this._failureDetail = "";
+        this._qualityOpen = false;
+        this._qualitySearch = true;
+        this._showAllDownloads = false;
+        this._releases = [];
+        this._showRejected = false;
+        this._releaseBusy = false;
         this._failCount = 0;
+        this._releaseCache = new Map();
     }
     setConfig(config) {
         if (!config.type) {
@@ -666,11 +1778,25 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             show_header_chips: ["disk", "queue", "health"],
             hide_destructive_actions: false,
             add_defaults: { search_on_add: true },
+            show_rows: [],
+            upcoming_days: 14,
+            recent_days: 7,
+            library_view: "grid",
+            library_sort: "title",
+            library_filter: "all",
+            external_link: false,
             ...config,
             type: config.type || "custom:arr-card",
         };
         this._tab = this.config.default_tab ?? "library";
-        this._libraryFilter = this.config.library_filter ?? "all";
+        const lf = this.config.library_filter ?? "all";
+        this._libraryChip =
+            lf === "missing" || lf === "downloaded" ? lf : "all";
+        this._librarySort = this.config.library_sort ?? "title";
+        this._libraryView = this.config.library_view ?? "grid";
+        const ad = this.config.add_defaults ?? {};
+        this._addSearchOn = ad.search_on_add !== false;
+        this._addMinAvail = ad.minimum_availability ?? "released";
     }
     connectedCallback() {
         super.connectedCallback();
@@ -690,6 +1816,8 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._ro?.disconnect();
         if (this._refreshTimer)
             clearInterval(this._refreshTimer);
+        if (this._lookupTimer)
+            clearTimeout(this._lookupTimer);
     }
     async _bootstrap() {
         if (!this.hass)
@@ -715,10 +1843,14 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             return;
         try {
             const data = (await callArr(this.hass, this._entryId, "get_state"));
+            const wasOff = this._offline;
             this._state = data;
             this._failCount = 0;
             if (!data.reachable)
                 this._failCount = 3;
+            if (wasOff && !this._offline) {
+                showToast(this, toastRadarrBack());
+            }
         }
         catch {
             this._failCount += 1;
@@ -733,6 +1865,10 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     get _offline() {
         return this._failCount >= 3 || this._state?.reachable === false;
     }
+    get _layoutTablet() {
+        const cfg = this.config ?? {};
+        return cfg.layout === "tablet" || (cfg.layout === "auto" && !this._compact);
+    }
     async _ws(command, data) {
         if (!this._entryId || !this.hass)
             throw new Error("No instance");
@@ -742,20 +1878,11 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._tab = tab;
         this._schedulePoll();
     }
-    _filteredMovies() {
+    _sortedLibrary() {
         const movies = this._state?.movies ?? [];
-        let list = [...movies];
-        const q = this._librarySearch.trim().toLowerCase();
-        if (q) {
-            list = list.filter((m) => m.title?.toLowerCase().includes(q));
-        }
-        if (this._libraryFilter === "missing") {
-            list = list.filter((m) => !m.hasFile);
-        }
-        else if (this._libraryFilter === "downloaded") {
-            list = list.filter((m) => m.hasFile);
-        }
-        return list;
+        const queue = this._state?.queue?.records ?? [];
+        const filtered = filterMovies(movies, this._libraryChip, this._librarySearch, queue);
+        return sortMovies(filtered, this._librarySort);
     }
     _queueRecords() {
         const rec = this._state?.queue?.records ?? [];
@@ -765,89 +1892,189 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             return aw - bw;
         });
     }
-    async _doLookup() {
-        if (this._addQuery.length < 2 || !this.hass)
+    _scheduleLookup() {
+        if (this._lookupTimer)
+            clearTimeout(this._lookupTimer);
+        const q = this._addQuery.trim();
+        if (q.length < 2) {
+            this._addPhase = "start";
+            this._lookupResults = [];
+            this._addError = "";
             return;
-        const res = (await this._ws("lookup", { term: this._addQuery }));
-        this._lookupResults = res.results?.slice(0, 20) ?? [];
+        }
+        this._addPhase = "searching";
+        this._lookupTimer = setTimeout(() => void this._doLookup(), LOOKUP_DEBOUNCE_MS);
+    }
+    async _doLookup() {
+        const q = this._addQuery.trim();
+        if (q.length < 2)
+            return;
+        try {
+            const res = (await this._ws("lookup", { term: q }));
+            this._lookupResults = res.results?.slice(0, 25) ?? [];
+            this._addPhase = this._lookupResults.length ? "results" : "no_results";
+            this._addError = "";
+        }
+        catch (err) {
+            this._addPhase = "error";
+            this._addError = err instanceof Error ? err.message : String(err);
+        }
+    }
+    _openAddSheet(hit) {
+        const profiles = this._state?.quality_profiles ?? [];
+        const roots = this._state?.root_folders ?? [];
+        const defaults = this.config.add_defaults ?? {};
+        const profile = profiles.find((p) => p.name === defaults.quality_profile) ??
+            profiles[0];
+        const root = roots.find((f) => f.path === defaults.root_folder) ?? roots[0];
+        this._addPick = hit;
+        this._addProfileId = profile?.id;
+        this._addRootPath = root?.path;
+        this._addSearchOn = defaults.search_on_add !== false;
+        this._addMonitored = true;
+        this._addMinAvail = defaults.minimum_availability ?? "released";
+        this._addSheetOpen = true;
+        this._addPhase = "sheet";
+    }
+    async _confirmAddMovie() {
+        if (!this._addPick)
+            return;
+        this._addBusy = true;
+        try {
+            const r = this._addPick;
+            await this._ws("add_movie", {
+                title: r.title,
+                year: r.year,
+                tmdbId: r.tmdbId,
+                imdbId: r.imdbId,
+                quality_profile_id: this._addProfileId,
+                root_folder_path: this._addRootPath,
+                search_on_add: this._addSearchOn,
+                monitored: this._addMonitored,
+                minimum_availability: this._addMinAvail,
+            });
+            showToast(this, toastAdded(String(r.title), this._addSearchOn));
+            this._addSheetOpen = false;
+            this._addPick = undefined;
+            this._addPhase = "start";
+            this._addQuery = "";
+            this._lookupResults = [];
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("add_movie", err);
+        }
+        finally {
+            this._addBusy = false;
+        }
+    }
+    async _openMovieDetail(m) {
+        this._selectedMovie = m;
+        try {
+            const res = (await this._ws("get_movie", { movie_id: m.id }));
+            this._detailExtra = res.movie;
+        }
+        catch {
+            this._detailExtra = undefined;
+        }
+    }
+    async _loadReleases(movieId, force = false) {
+        const cached = this._releaseCache.get(movieId);
+        const now = Date.now();
+        if (!force && cached && now - cached.at < RELEASE_CACHE_MS) {
+            this._releases = cached.releases;
+            return;
+        }
+        this._manualMovieId = movieId;
+        this._releaseBusy = true;
+        try {
+            const res = (await this._ws("release_search", { movie_id: movieId }));
+            const releases = res.releases ?? [];
+            this._releaseCache.set(movieId, { at: now, releases });
+            this._releases = releases;
+        }
+        catch (err) {
+            this._fail("movie_search", err);
+            this._releases = [];
+        }
+        finally {
+            this._releaseBusy = false;
+        }
     }
     render() {
         if (this._configError) {
             return b `
-        <ha-card>
+        <ha-card data-screen="G03">
           <p><strong>Movies card can't start</strong></p>
           <p>${this._configError}</p>
         </ha-card>
       `;
         }
         const cfg = this.config ?? {};
-        const layoutTablet = cfg.layout === "tablet" || (cfg.layout === "auto" && !this._compact);
         const tabs = cfg.tabs ?? ["add", "downloading", "library"];
         const showTabBar = tabs.length > 1;
         const queueCount = this._state?.queue_count ?? 0;
         const failedInQueue = this._queueRecords().some((r) => (r.status || "").toLowerCase() === "failed");
+        const sideDetail = this._layoutTablet && this._selectedMovie && this._tab === "library";
         return b `
       <ha-card
-        class="${this._compact ? "compact" : ""} ${layoutTablet
+        class="${this._compact ? "compact" : ""} ${this._layoutTablet
             ? "layout-tablet"
-            : ""}"
+            : ""} ${sideDetail ? "with-side-panel" : ""}"
       >
         <div class="header">
           <div class="title-row">
-            <ha-icon icon="${this.config.icon ?? "mdi:movie-open"}"></ha-icon>
-            <span>${this.config.title ?? "Movies"}</span>
+            <ha-icon icon="${cfg.icon ?? "mdi:movie-open"}"></ha-icon>
+            <span>${cfg.title ?? "Movies"}</span>
           </div>
           <div class="chips">${this._renderChips()}</div>
         </div>
 
-        ${showTabBar
-            ? b `
-              <div class="tabs" role="tablist" aria-label="Arr card tabs">
-                ${tabs.map((t) => b `
-                    <button
-                      role="tab"
-                      class="tab"
-                      aria-selected=${this._tab === t ? "true" : "false"}
-                      @click=${() => this._switchTab(t)}
-                    >
-                      ${t === "add"
-                ? "Add"
-                : t === "downloading"
-                    ? "Downloading"
-                    : "Library"}
-                      ${t === "downloading" && queueCount > 0
-                ? b `
-                            <span
-                              class="badge ${failedInQueue
-                    ? "error"
-                    : "warn"}"
-                              >${queueCount}</span
-                            >
-                          `
-                : A}
-                    </button>
-                  `)}
-              </div>
-            `
-            : A}
+        ${showTabBar ? this._renderTabs(tabs, queueCount, failedInQueue) : A}
 
-        ${this._offline
-            ? b `
-              <div class="banner" role="alert">
-                <strong>Can't reach Radarr.</strong> Actions are off until it's
-                back.
-                <button class="text" @click=${() => this._refresh()}>Retry</button>
-              </div>
-            `
-            : A}
+        ${this._offline ? this._renderOfflineBanner() : A}
 
-        <div class="${this._offline ? "offline-dim" : ""}">
-          ${this._tab === "library" ? this._renderLibrary() : A}
-          ${this._tab === "downloading" ? this._renderDownloading() : A}
-          ${this._tab === "add" ? this._renderAdd() : A}
+        <div class="${this._offline ? "offline-dim" : ""} layout-body">
+          <div class="main-pane">
+            ${this._tab === "library" ? this._renderLibrary() : A}
+            ${this._tab === "downloading" ? this._renderDownloading() : A}
+            ${this._tab === "add" ? this._renderAdd() : A}
+          </div>
+          ${sideDetail ? this._renderDetailPanel() : A}
         </div>
 
-        ${this._selectedMovie ? this._renderDetail() : A}
+        ${!sideDetail && this._selectedMovie ? this._renderDetailDialog() : A}
+        ${this._manualMovieId ? this._renderManualSearch() : A}
+
+        ${renderStatusSheet(this._statusOpen, this._state?.health ?? [], this._state?.disk_space ?? [], cfg, () => (this._statusOpen = false))}
+        ${renderFailureSheet("Failure details", this._failureDetail, () => (this._failureDetail = ""))}
+        ${renderAddSheet(this._addSheetOpen, this._addPick, this._state?.quality_profiles ?? [], this._state?.root_folders ?? [], this._addProfileId, this._addRootPath, this._addSearchOn, this._addMonitored, this._addMinAvail, this._addBusy, this._offline, (id) => (this._addProfileId = id), (path) => (this._addRootPath = path), (v) => (this._addSearchOn = v), (v) => (this._addMonitored = v), (v) => (this._addMinAvail = v), () => {
+            this._addSheetOpen = false;
+            this._addPhase = "results";
+        }, () => void this._confirmAddMovie())}
+        ${renderQualitySheet(this._qualityOpen, this._state?.quality_profiles ?? [], this._selectedMovie?.qualityProfileId, this._qualitySearch, (v) => (this._qualitySearch = v), (id) => void this._setQualityProfile(id), () => (this._qualityOpen = false))}
+        ${this._queueOverflow
+            ? renderQueueOverflowSheet(true, this._queueOverflow.movie?.title ?? this._queueOverflow.title ?? "", this._queueOverflow.movie?.year, this._hideDestructive, this._offline, () => (this._queueOverflow = undefined), () => {
+                const row = this._queueOverflow;
+                this._queueOverflow = undefined;
+                if (row) {
+                    this._openConfirm("d04b", {
+                        title: row.movie?.title ?? row.title,
+                        queue_id: row.id,
+                    });
+                }
+            }, () => {
+                const row = this._queueOverflow;
+                this._queueOverflow = undefined;
+                if (row) {
+                    this._openConfirm("d04", {
+                        title: row.movie?.title ?? row.title,
+                        year: row.movie?.year,
+                        queue_id: row.id,
+                    });
+                }
+            })
+            : A}
         ${renderConfirmDialog(this._confirm, this._confirmBusy, () => (this._confirm = null), () => void this._runConfirm(), (v) => {
             if (this._confirm)
                 this._confirm = { ...this._confirm, deleteFiles: v };
@@ -860,17 +2087,61 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         }, (v) => {
             if (this._confirm)
                 this._confirm = { ...this._confirm, removeFromClient: v };
+        }, (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, addImportExclusion: v };
         })}
         <div class="live-region" aria-live="polite"></div>
       </ha-card>
     `;
     }
+    _renderTabs(tabs, queueCount, failedInQueue) {
+        return b `
+      <div class="tabs" role="tablist" aria-label="Arr card tabs">
+        ${tabs.map((t) => b `
+            <button
+              role="tab"
+              class="tab"
+              aria-selected=${this._tab === t ? "true" : "false"}
+              @click=${() => this._switchTab(t)}
+            >
+              ${t === "add"
+            ? "Add"
+            : t === "downloading"
+                ? "Downloading"
+                : "Library"}
+              ${t === "downloading" && queueCount > 0
+            ? b `
+                    <span class="badge ${failedInQueue ? "error" : "warn"}"
+                      >${queueCount}</span
+                    >
+                  `
+            : A}
+            </button>
+          `)}
+      </div>
+    `;
+    }
+    _renderOfflineBanner() {
+        const last = this._state?.last_success;
+        return b `
+      <div class="banner" role="alert" data-screen="G01">
+        <strong>Can't reach Radarr.</strong> Actions are off until it's back.
+        ${last
+            ? b `<span class="hint-muted">Last OK: ${formatRelative(last)}</span>`
+            : A}
+        <button class="text" @click=${() => void this._refresh()}>Retry</button>
+        <button class="text" @click=${() => (this._statusOpen = true)}>
+          Status
+        </button>
+      </div>
+    `;
+    }
     _renderChips() {
         const chips = this.config.show_header_chips ?? ["disk", "queue", "health"];
         const disk = this._state?.disk_space?.[0];
-        const freeGb = disk
-            ? (disk.freeSpace / 1e9).toFixed(1)
-            : "—";
+        const freeGb = disk ? (disk.freeSpace / 1e9).toFixed(1) : "—";
+        const healthBad = (this._state?.health?.length ?? 0) > 0;
         return b `
       ${chips.includes("disk")
             ? b `<span class="chip health"
@@ -889,57 +2160,209 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
           </button>`
             : A}
       ${chips.includes("health")
-            ? b `<span class="chip health"
-            ><ha-icon
-              icon="${this._offline ? "mdi:lan-disconnect" : "mdi:heart-pulse"}"
-            ></ha-icon
-            >${this._offline ? "Offline" : "Healthy"}</span
-          >`
+            ? b `<button
+            class="chip chip-button"
+            @click=${() => (this._statusOpen = true)}
+          >
+            <ha-icon
+              icon="${this._offline
+                ? "mdi:lan-disconnect"
+                : healthBad
+                    ? "mdi:heart-broken"
+                    : "mdi:heart-pulse"}"
+            ></ha-icon>
+            ${this._offline ? "Offline" : healthBad ? "Issues" : "Healthy"}
+          </button>`
             : A}
     `;
     }
     _renderLibrary() {
         if (this._loading) {
-            return b `<p>Loading your library…</p>`;
+            return b `<div data-screen="L01" class="skeleton-block"></div>`;
         }
-        const movies = this._filteredMovies();
+        const cfg = this.config;
+        const movies = this._sortedLibrary();
+        const showRows = cfg.show_rows ?? [];
+        const up = showRows.includes("upcoming")
+            ? upcomingMovies(this._state?.movies ?? [], cfg.upcoming_days ?? 14)
+            : [];
+        const rec = showRows.includes("recent")
+            ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
+            : [];
+        const useVirtual = movies.length > VIRTUAL_THRESHOLD;
+        const letters = this._librarySort === "title" && this._layoutTablet
+            ? indexLetters(movies)
+            : [];
         return b `
-      <input
-        class="search-field"
-        placeholder="Search your library"
-        aria-label="Search your library"
-        .value=${this._librarySearch}
-        @input=${(e) => (this._librarySearch = e.target.value)}
-      />
-      <div class="grid" role="list">
-        ${movies.map((m) => b `
-            <button
-              class="poster-btn"
-              role="listitem"
-              aria-label=${m.title ?? "Movie"}
-              @click=${() => (this._selectedMovie = m)}
-            >
-              <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-              <div>${m.title} (${m.year})</div>
-            </button>
-          `)}
-      </div>
-      ${!movies.length
+      <div data-screen="L01">
+        <input
+          class="search-field"
+          placeholder="Search your library"
+          aria-label="Search your library"
+          .value=${this._librarySearch}
+          @input=${(e) => (this._librarySearch = e.target.value)}
+        />
+        <div class="chip-row" role="toolbar" aria-label="Library filters">
+          ${["all", "missing", "downloaded", "in_queue"].map((c) => b `
+              <button
+                class="filter-chip ${this._libraryChip === c ? "active" : ""}"
+                @click=${() => (this._libraryChip = c)}
+              >
+                ${c === "all"
+            ? "All"
+            : c === "missing"
+                ? "Missing"
+                : c === "downloaded"
+                    ? "Downloaded"
+                    : "In queue"}
+              </button>
+            `)}
+          <select
+            class="sort-select"
+            aria-label="Sort"
+            .value=${this._librarySort}
+            @change=${(e) => (this._librarySort = e.target
+            .value)}
+          >
+            <option value="title">Title</option>
+            <option value="added">Added</option>
+            <option value="year">Year</option>
+          </select>
+          <button
+            class="filter-chip"
+            aria-label="Toggle grid or list"
+            @click=${() => (this._libraryView =
+            this._libraryView === "grid" ? "list" : "grid")}
+          >
+            <ha-icon
+              icon=${this._libraryView === "grid"
+            ? "mdi:view-grid"
+            : "mdi:view-list"}
+            ></ha-icon>
+          </button>
+        </div>
+
+        ${up.length
+            ? b `
+              <section data-screen="L02" class="row-section">
+                <h3>Coming soon</h3>
+                <div class="h-scroll">
+                  ${up.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
+        ${rec.length
+            ? b `
+              <section data-screen="L03" class="row-section">
+                <h3>Recently added</h3>
+                <div class="h-scroll">
+                  ${rec.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
+
+        <div class="library-with-rail">
+          ${useVirtual
+            ? b `
+                <arr-virtual-list
+                  data-screen="L04"
+                  .itemCount=${movies.length}
+                  .itemHeight=${this._libraryView === "list" ? 64 : 140}
+                  .renderItem=${(i) => this._libraryItem(movies[i])}
+                ></arr-virtual-list>
+              `
+            : b `
+                <div
+                  data-screen="L05"
+                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
+                  role="list"
+                >
+                  ${movies.map((m) => this._libraryItem(m))}
+                </div>
+              `}
+          ${letters.length
+            ? b `
+                <div class="az-rail" data-screen="L01T" aria-hidden="true">
+                  ${letters.map((L) => b `
+                      <span class="az-letter">${L}</span>
+                    `)}
+                </div>
+              `
+            : A}
+        </div>
+        ${!movies.length
             ? b `<p>No movies match your filters.</p>`
             : A}
+      </div>
+    `;
+    }
+    _libraryTile(m) {
+        return b `
+      <button
+        class="poster-btn small"
+        @click=${() => void this._openMovieDetail(m)}
+      >
+        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <span>${m.title}</span>
+      </button>
+    `;
+    }
+    _libraryItem(m) {
+        if (this._libraryView === "list") {
+            return b `
+        <button
+          class="list-row"
+          role="listitem"
+          @click=${() => void this._openMovieDetail(m)}
+        >
+          <img class="thumb" src=${m.posterUrl ?? ""} alt="" />
+          <span>${m.title} (${m.year})</span>
+          ${m.hasFile
+                ? b `<span class="pill ok">On disk</span>`
+                : b `<span class="pill">Missing</span>`}
+        </button>
+      `;
+        }
+        return b `
+      <button
+        class="poster-btn"
+        role="listitem"
+        aria-label=${m.title ?? "Movie"}
+        @click=${() => void this._openMovieDetail(m)}
+      >
+        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <div>${m.title} (${m.year})</div>
+      </button>
     `;
     }
     _renderDownloading() {
         const rows = this._queueRecords();
         if (!rows.length) {
             return b `
-        <p><ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading</p>
+        <p data-screen="D01">
+          <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
+        </p>
       `;
         }
+        const limit = this._compact && !this._showAllDownloads ? 3 : rows.length;
+        const visible = rows.slice(0, limit);
         return b `
-      <div role="list">
-        ${rows.map((row) => this._renderQueueRow(row))}
+      <div data-screen="D02" role="list">
+        ${visible.map((row) => this._renderQueueRow(row))}
       </div>
+      ${this._compact && rows.length > 3 && !this._showAllDownloads
+            ? b `
+            <button
+              class="text"
+              data-screen="G04"
+              @click=${() => (this._showAllDownloads = true)}
+            >
+              Show all ${rows.length} downloads
+            </button>
+          `
+            : A}
     `;
     }
     _renderQueueRow(row) {
@@ -949,22 +2372,34 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             .toLowerCase()
             .includes("import");
         const hide = this._hideDestructive;
+        const pct = queueProgress(row);
         return b `
       <div
         class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""}"
         role="listitem"
+        data-screen="D02"
       >
-        <div style="flex:1">
+        <div class="queue-main">
           <strong>${title}</strong>
           <span class="pill ${failed ? "failed" : ""}"
-            >${row.status ?? "Queued"}</span
+            >${queueStatusLabel(row)}</span
           >
           <div
+            class="progress-bar"
             role="progressbar"
             aria-label="${title} progress"
-            aria-valuenow="0"
-          ></div>
-          <div>
+            aria-valuenow=${pct}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div class="progress-fill" style="width: ${pct}%"></div>
+          </div>
+          <div class="queue-meta mono">
+            ${row.quality?.quality?.name ?? ""}
+            ${row.size ? ` · ${formatBytes(row.size)}` : ""}
+            ${row.timeleft ? ` · ${row.timeleft}` : ""}
+          </div>
+          <div class="queue-actions">
             ${!hide
             ? b `
                   ${failed || row.trackedDownloadStatus === "warning"
@@ -973,7 +2408,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                         data-action="remove-search-again"
                         data-qid=${row.id}
                         ?disabled=${this._offline}
-                        @click=${() => void this._removeSearchAgain(row.id)}
+                        @click=${() => void this._removeSearchAgain(row.id, title)}
                       >
                         Remove & search again
                       </button>`
@@ -1005,7 +2440,6 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             ? b `<button
                   class="primary"
                   data-action="retry-import"
-                  data-qid=${row.id}
                   ?disabled=${this._offline}
                   @click=${() => void this._retryImport(row)}
                 >
@@ -1017,12 +2451,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         ${!hide
             ? b `<button
               aria-label="More actions for ${title}"
-              class="text"
-              @click=${() => this._openConfirm("d04", {
-                title,
-                year: row.movie?.year,
-                queue_id: row.id,
-            })}
+              class="text overflow-btn"
+              data-screen="D03"
+              @click=${() => (this._queueOverflow = row)}
             >
               ⋮
             </button>`
@@ -1031,101 +2462,289 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     `;
     }
     _renderAdd() {
+        const screen = this._addPhase === "searching"
+            ? "A02"
+            : this._addPhase === "results"
+                ? "A03"
+                : this._addPhase === "no_results"
+                    ? "A04"
+                    : this._addPhase === "error"
+                        ? "A06"
+                        : "A01";
+        const movies = this._state?.movies ?? [];
+        const comingSoon = this._lookupResults.filter((r) => {
+            const st = String(r.status ?? r.statusType ?? "").toLowerCase();
+            return st.includes("cinemas") || st.includes("announced");
+        });
         return b `
-      <input
-        class="search-field"
-        placeholder="Search for a movie to add"
-        aria-label="Search for a movie to add"
-        ?disabled=${this._offline}
-        .value=${this._addQuery}
-        @input=${(e) => {
+      <svg width="0" height="0" aria-hidden="true"></svg>
+      <div data-screen=${screen}>
+        <input
+          class="search-field"
+          placeholder="Search for a movie to add"
+          aria-label="Search for a movie to add"
+          ?disabled=${this._offline}
+          .value=${this._addQuery}
+          @input=${(e) => {
             this._addQuery = e.target.value;
-            void this._doLookup();
+            this._scheduleLookup();
         }}
-      />
-      <div role="list">
-        ${this._lookupResults.map((r) => b `
-            <div role="listitem">
-              <strong>${r.title} (${r.year})</strong>
-              <button
-                class="primary"
-                data-action="add-movie"
-                ?disabled=${this._offline}
-                @click=${() => void this._addFromLookup(r)}
-              >
-                Add movie
-              </button>
-            </div>
-          `)}
+        />
+        ${this._addPhase === "searching"
+            ? b `<div class="skeleton-list" aria-busy="true"></div>`
+            : A}
+        ${this._addPhase === "no_results"
+            ? b `<p>No matches. Try another title or year.</p>`
+            : A}
+        ${this._addPhase === "error"
+            ? b `<p class="error-text">${this._addError}</p>`
+            : A}
+        <div role="list">
+          ${this._lookupResults.map((r) => {
+            const lib = inLibrary(movies, r);
+            return b `
+              <div class="lookup-row" role="listitem">
+                <strong>${r.title} (${r.year})</strong>
+                ${lib
+                ? b `
+                      <button
+                        class="primary"
+                        @click=${() => void this._openMovieDetail(lib)}
+                      >
+                        Open
+                      </button>
+                      <span class="pill ok">In library</span>
+                    `
+                : b `
+                      <button
+                        class="primary"
+                        data-action="add-movie"
+                        ?disabled=${this._offline}
+                        @click=${() => this._openAddSheet(r)}
+                      >
+                        Add movie
+                      </button>
+                    `}
+              </div>
+            `;
+        })}
+        </div>
+        ${comingSoon.length && this._addPhase === "results"
+            ? b `
+              <section data-screen="A07">
+                <h3>Coming soon in results</h3>
+                ${comingSoon.map((r) => b `<p>${r.title} (${r.year})</p>`)}
+              </section>
+            `
+            : A}
       </div>
     `;
     }
-    _renderDetail() {
-        const m = this._selectedMovie;
-        if (!m)
-            return A;
+    _detailBody(m) {
+        const extra = this._detailExtra;
         const hide = this._hideDestructive;
+        const size = m.sizeOnDisk;
         return b `
-      <dialog open>
-        <button class="text" @click=${() => (this._selectedMovie = undefined)}>
-          ← Back
-        </button>
-        <h2>${m.title} (${m.year})</h2>
-        <label>
-          <input
-            type="checkbox"
-            role="switch"
-            .checked=${m.monitored ?? true}
-            @change=${(e) => void this._setMonitored(m.id, e.target.checked)}
-          />
-          Monitored
-        </label>
+      <button
+        class="text"
+        @click=${() => {
+            this._selectedMovie = undefined;
+            this._detailExtra = undefined;
+        }}
+      >
+        ← Back
+      </button>
+      <h2 data-screen="M01">${m.title} (${m.year})</h2>
+      <img
+        class="detail-poster"
+        src=${m.posterUrl ?? ""}
+        alt=""
+        loading="lazy"
+      />
+      <dl class="detail-dl">
+        <dt>Quality</dt>
+        <dd>${m.quality ?? "—"}</dd>
+        <dt>Size</dt>
+        <dd class="mono">${size ? formatBytes(size) : "—"}</dd>
+        <dt>Status</dt>
+        <dd>${m.status ?? "—"}</dd>
+        <dt>Runtime</dt>
+        <dd>${m.runtime ?? extra?.runtime ?? "—"} min</dd>
+        <dt>Certification</dt>
+        <dd>${m.certification ?? extra?.certification ?? "—"}</dd>
+      </dl>
+      <p class="overview">${m.overview ?? extra?.overview ?? ""}</p>
+      <label>
+        <input
+          type="checkbox"
+          role="switch"
+          .checked=${m.monitored ?? true}
+          ?disabled=${this._offline}
+          @change=${(e) => void this._setMonitored(m.id, e.target.checked, m.title)}
+        />
+        Monitored
+      </label>
+      <div class="detail-actions">
         <button
           class="primary"
           ?disabled=${this._offline}
-          @click=${() => void this._movieSearch(m.id)}
+          @click=${() => void this._movieSearch(m)}
         >
           Search again
         </button>
         <button
           class="primary"
+          data-screen="M04"
           ?disabled=${this._offline}
-          @click=${() => void this._manualSearch(m.id)}
+          @click=${() => void this._openManualSearch(m)}
         >
           Manual search
         </button>
-        ${!hide && m.hasFile
+        <button
+          class="text"
+          data-screen="M08"
+          ?disabled=${this._offline}
+          @click=${() => (this._qualityOpen = true)}
+        >
+          Change quality profile
+        </button>
+      </div>
+      ${!hide && m.hasFile
             ? b `
-              <section>
-                <h3>Fix or remove</h3>
-                <button
-                  class="outline-danger"
-                  data-action="delete-redownload"
-                  ?disabled=${this._offline}
-                  @click=${() => this._openConfirm("m09", {
+            <section data-screen="M12T">
+              <h3>Fix or remove</h3>
+              <button
+                class="outline-danger"
+                data-action="delete-redownload"
+                ?disabled=${this._offline}
+                @click=${() => this._openConfirm("m09", {
                 title: m.title,
+                year: m.year,
+                quality: m.quality,
+                size: m.sizeOnDisk,
                 movie_id: m.id,
                 showBlockCheckbox: true,
             })}
-                >
-                  Delete file & redownload
-                </button>
-                <button
-                  class="outline-danger"
-                  data-action="remove-movie"
-                  ?disabled=${this._offline}
-                  @click=${() => this._openConfirm("m10", {
+              >
+                Delete file & redownload
+              </button>
+              <button
+                class="outline-danger"
+                data-action="remove-movie"
+                ?disabled=${this._offline}
+                @click=${() => this._openConfirm("m10", {
                 title: m.title,
                 movie_id: m.id,
+                size: m.sizeOnDisk,
             })}
-                >
-                  Remove movie
-                </button>
-              </section>
-            `
+              >
+                Remove movie
+              </button>
+            </section>
+          `
             : A}
+    `;
+    }
+    _renderDetailPanel() {
+        const m = this._selectedMovie;
+        if (!m)
+            return A;
+        return b `
+      <aside class="side-panel" data-screen="M02">${this._detailBody(m)}</aside>
+    `;
+    }
+    _renderDetailDialog() {
+        const m = this._selectedMovie;
+        if (!m)
+            return A;
+        return b `
+      <dialog open class="detail-dialog" data-screen="M03">
+        ${this._detailBody(m)}
       </dialog>
     `;
+    }
+    _renderManualSearch() {
+        const filtered = this._releases.filter((r) => this._showRejected ? true : r.approved !== false);
+        return b `
+      <dialog open class="release-dialog" data-screen="M05">
+        <button class="text" @click=${() => (this._manualMovieId = undefined)}>
+          ← Back
+        </button>
+        <h2>Manual search</h2>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${this._showRejected}
+            @change=${(e) => (this._showRejected = e.target.checked)}
+          />
+          Show rejected releases
+        </label>
+        ${this._releaseBusy
+            ? b `<div class="skeleton-list"></div>`
+            : b `
+              <div role="list" data-screen="M05T">
+                ${filtered.map((r) => this._releaseRow(r))}
+              </div>
+            `}
+      </dialog>
+    `;
+    }
+    _releaseRow(r) {
+        const rejected = r.approved === false;
+        const reasons = (r.rejections ?? []).join(", ");
+        return b `
+      <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
+        <div>
+          <strong>${r.title ?? r.indexer ?? "Release"}</strong>
+          <div class="mono">
+            ${formatBytes(r.size)} · ${r.seeders ?? "?"} seeders · ${r.age ?? "?"}d
+          </div>
+          ${rejected
+            ? b `<p class="hint-muted">${reasons}</p>`
+            : A}
+        </div>
+        <button
+          class="primary"
+          ?disabled=${this._offline || this._releaseBusy}
+          @click=${() => this._grabRelease(r, rejected, reasons)}
+        >
+          ${rejected ? "Grab anyway" : "Grab"}
+        </button>
+      </div>
+    `;
+    }
+    _grabRelease(release, rejected, reasons) {
+        if (rejected) {
+            this._openConfirm("m06", {
+                title: release.title,
+                releaseName: release.title,
+                reasons,
+                size: release.size,
+                release,
+            });
+            return;
+        }
+        void this._doGrab(release);
+    }
+    async _doGrab(release) {
+        this._releaseBusy = true;
+        try {
+            await this._ws("grab_release", { release });
+            showToast(this, toastGrab());
+            this._manualMovieId = undefined;
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("grab_release", err);
+        }
+        finally {
+            this._releaseBusy = false;
+        }
+    }
+    _fail(command, err) {
+        this._failureDetail =
+            err instanceof Error ? err.message : String(err);
+        showActionFailure(this, command, err);
     }
     _openConfirm(kind, payload) {
         this._confirm = {
@@ -1135,6 +2754,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             blockRelease: true,
             searchAgain: true,
             removeFromClient: true,
+            addImportExclusion: false,
         };
     }
     async _runConfirm() {
@@ -1148,8 +2768,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                     await this._ws("remove_movie", {
                         movie_id: payload.movie_id,
                         delete_files: this._confirm.deleteFiles ?? false,
+                        add_import_exclusion: this._confirm.addImportExclusion ?? false,
                     });
-                    fireToast(this, `Removed ${payload.title}.`);
+                    showToast(this, toastRemoveMovie(String(payload.title), Boolean(this._confirm.deleteFiles)));
                     this._selectedMovie = undefined;
                     break;
                 case "m09":
@@ -1157,7 +2778,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                         movie_id: payload.movie_id,
                         block_release: this._confirm.blockRelease ?? false,
                     });
-                    fireToast(this, `Deleted the file. Searching for a new copy of ${payload.title}…`);
+                    showToast(this, toastDeleteRedownload(String(payload.title)));
                     break;
                 case "d04":
                     await this._ws("queue_remove_blocklist", {
@@ -1165,76 +2786,115 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
                         search_again: this._confirm.searchAgain ?? true,
                         remove_from_client: this._confirm.removeFromClient ?? true,
                     });
-                    fireToast(this, `Removed ${payload.title} and blocked the release.`);
+                    showToast(this, toastRemoveBlocklist(String(payload.title), Boolean(this._confirm.searchAgain)));
                     break;
                 case "d04b":
                     await this._ws("queue_remove", {
                         queue_id: payload.queue_id,
                         remove_from_client: this._confirm.removeFromClient ?? true,
                     });
-                    fireToast(this, `Removed ${payload.title} from downloads.`);
+                    showToast(this, toastRemoveQueue(String(payload.title)));
                     break;
+                case "m06": {
+                    const rel = payload.release;
+                    await this._ws("grab_release", { release: rel });
+                    showToast(this, toastGrab());
+                    this._manualMovieId = undefined;
+                    break;
+                }
                 default:
                     break;
             }
             await this._refresh();
         }
         catch (err) {
-            fireToast(this, `Couldn't complete action. Radarr said: ${err}`);
+            const cmd = kind === "m10"
+                ? "remove_movie"
+                : kind === "m09"
+                    ? "delete_file_redownload"
+                    : kind === "m06"
+                        ? "grab_release"
+                        : "queue_remove";
+            this._fail(cmd, err);
         }
         finally {
             this._confirmBusy = false;
             this._confirm = null;
         }
     }
-    async _removeSearchAgain(queueId) {
-        await this._ws("queue_remove_search_again", { queue_id: queueId });
-        fireToast(this, "Removed and blocked the release. Searching for another…");
-        await this._refresh();
+    async _removeSearchAgain(queueId, title) {
+        try {
+            await this._ws("queue_remove_search_again", { queue_id: queueId });
+            showToast(this, toastRemoveSearchAgain(title));
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("queue_remove", err);
+        }
     }
     async _retryImport(row) {
-        await this._ws("retry_import", {
-            output_path: row.outputPath,
-            download_client_id: row.downloadId,
-        });
-        fireToast(this, `Retrying import for ${row.movie?.title ?? "movie"}…`);
-        await this._refresh();
+        try {
+            await this._ws("retry_import", {
+                output_path: row.outputPath,
+                download_client_id: row.downloadId,
+            });
+            showToast(this, toastRetryImport(row.movie?.title ?? "movie"));
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("retry_import", err);
+        }
     }
-    async _setMonitored(movieId, monitored) {
-        await this._ws("set_monitored", { movie_id: movieId, monitored });
-        fireToast(this, monitored
-            ? "Monitoring on."
-            : "Monitoring off. Radarr won't download or upgrade it.");
-        await this._refresh();
+    async _setMonitored(movieId, monitored, title) {
+        try {
+            await this._ws("set_monitored", { movie_id: movieId, monitored });
+            showToast(this, monitored
+                ? toastMonitorOn(title ?? "Movie")
+                : toastMonitorOff(title ?? "Movie"));
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("set_monitored", err);
+        }
     }
-    async _movieSearch(movieId) {
-        await this._ws("movie_search", { movie_id: movieId });
-        fireToast(this, "Searching…");
+    async _movieSearch(m) {
+        try {
+            await this._ws("movie_search", { movie_id: m.id });
+            showToast(this, toastSearchAgain(m.title));
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("not_found") || msg.includes("gone")) {
+                showToast(this, toastGone());
+                this._selectedMovie = undefined;
+            }
+            else {
+                this._fail("movie_search", err);
+            }
+        }
     }
-    async _manualSearch(movieId) {
-        await this._ws("release_search", { movie_id: movieId });
-        fireToast(this, "Searching indexers…");
+    async _openManualSearch(m) {
+        await this._loadReleases(m.id);
     }
-    async _addFromLookup(r) {
+    async _setQualityProfile(profileId) {
+        const m = this._selectedMovie;
+        if (!m)
+            return;
         const profiles = this._state?.quality_profiles ?? [];
-        const roots = this._state?.root_folders ?? [];
-        const defaults = this.config.add_defaults ?? {};
-        const profile = profiles.find((p) => p.name === defaults.quality_profile) ??
-            profiles[0];
-        const root = roots.find((f) => f.path === defaults.root_folder) ?? roots[0];
-        await this._ws("add_movie", {
-            title: r.title,
-            year: r.year,
-            tmdbId: r.tmdbId,
-            imdbId: r.imdbId,
-            quality_profile_id: profile?.id,
-            root_folder_path: root?.path,
-            search_on_add: defaults.search_on_add !== false,
-            monitored: true,
-            minimum_availability: defaults.minimum_availability ?? "released",
-        });
-        fireToast(this, `Added ${r.title}. Searching for a download…`);
-        await this._refresh();
+        const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
+        try {
+            await this._ws("set_quality_profile", {
+                movie_id: m.id,
+                quality_profile_id: profileId,
+                search: this._qualitySearch,
+            });
+            showToast(this, toastProfile(name, this._qualitySearch));
+            this._qualityOpen = false;
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("set_quality_profile", err);
+        }
     }
     getCardSize() {
         return this._compact ? 4 : 8;
@@ -1273,19 +2933,88 @@ __decorate([
 ], ArrDashboardCard.prototype, "_addQuery", void 0);
 __decorate([
     r()
+], ArrDashboardCard.prototype, "_addPhase", void 0);
+__decorate([
+    r()
 ], ArrDashboardCard.prototype, "_lookupResults", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addError", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addPick", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addSheetOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addProfileId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addRootPath", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addSearchOn", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addMonitored", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addMinAvail", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addBusy", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_selectedMovie", void 0);
 __decorate([
     r()
-], ArrDashboardCard.prototype, "_libraryFilter", void 0);
+], ArrDashboardCard.prototype, "_detailExtra", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryChip", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_librarySearch", void 0);
 __decorate([
     r()
+], ArrDashboardCard.prototype, "_librarySort", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryView", void 0);
+__decorate([
+    r()
 ], ArrDashboardCard.prototype, "_compact", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_statusOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_failureDetail", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualitySearch", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_queueOverflow", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_showAllDownloads", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_manualMovieId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releases", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_showRejected", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releaseBusy", void 0);
 ArrDashboardCard = __decorate([
     t("arr-card")
 ], ArrDashboardCard);
@@ -1299,10 +3028,6 @@ window.customCards.push({
     description: "Radarr library, queue, and add card",
     preview: true,
     documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
-});
-customElements.whenDefined("arr-dashboard-card").then(() => {
-    const el = customElements.get("arr-dashboard-card");
-    if (el && !customElements.get("ha-panel-arr-card")) ;
 });
 function getConfigElement() {
     return document.createElement("arr-card-editor");

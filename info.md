@@ -54,7 +54,7 @@ add_defaults:
 alias: Movie download failed
 triggers:
   - trigger: event
-    event_type: arr_dashboard_download_failed
+    event_type: arr_download_failed
 actions:
   - action: notify.notify
     data:

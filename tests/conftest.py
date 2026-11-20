@@ -17,6 +17,8 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     return
 
 
+
+
 @pytest.fixture
 def expected_lingering_timers():
     """Polling coordinators and HTTP client shutdown."""
@@ -32,14 +34,6 @@ def expected_lingering_tasks():
 
 
 @pytest.fixture
-def aioresponses():
-    from aioresponses import aioresponses as m
-
-    with m() as mocked:
-        yield mocked
-
-
-@pytest.fixture
 def radarr_config() -> dict:
     return {
         "url": "http://radarr.local:7878",
@@ -49,47 +43,35 @@ def radarr_config() -> dict:
     }
 
 
+def _mock_radarr_poll(aioclient_mock, base: str = "http://radarr.local:7878") -> None:
+    aioclient_mock.get(f"{base}/api/v3/system/status", json={"version": "5.0.0.0"})
+    aioclient_mock.get(f"{base}/api/v3/movie", json=[])
+    aioclient_mock.get(
+        f"{base}/api/v3/queue?includeMovie=true",
+        json={"records": [], "totalRecords": 0},
+    )
+    aioclient_mock.get(f"{base}/api/v3/health", json=[])
+    aioclient_mock.get(
+        f"{base}/api/v3/diskspace",
+        json=[{"path": "/movies", "freeSpace": 100e9, "totalSpace": 1e12}],
+    )
+    aioclient_mock.get(
+        f"{base}/api/v3/rootfolder",
+        json=[{"id": 1, "path": "/movies", "freeSpace": 100e9}],
+    )
+    aioclient_mock.get(
+        f"{base}/api/v3/qualityprofile",
+        json=[{"id": 1, "name": "HD-1080p"}],
+    )
+
+
 @pytest.fixture
 async def integration_setup(
     hass: HomeAssistant,
     radarr_config: dict,
-    aioresponses,
+    aioclient_mock,
 ) -> MockConfigEntry:
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/system/status",
-        payload={"version": "5.0.0.0"},
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/movie",
-        payload=[],
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/queue?includeMovie=true",
-        payload={"records": [], "totalRecords": 0},
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/health",
-        payload=[],
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/diskspace",
-        payload=[{"path": "/movies", "freeSpace": 100e9, "totalSpace": 1e12}],
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/rootfolder",
-        payload=[{"id": 1, "path": "/movies", "freeSpace": 100e9}],
-        repeat=True,
-    )
-    aioresponses.get(
-        "http://radarr.local:7878/api/v3/qualityprofile",
-        payload=[{"id": 1, "name": "HD-1080p"}],
-        repeat=True,
-    )
+    _mock_radarr_poll(aioclient_mock)
 
     entry = MockConfigEntry(
         domain=DOMAIN,

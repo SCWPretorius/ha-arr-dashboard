@@ -1,15 +1,11 @@
 import { FAILURE_VERBS } from "./spec-copy";
 
-let _lastToastAt = 0;
-
 export function showToast(
   el: HTMLElement,
   message: string,
   actionText?: string,
   onAction?: () => void,
 ): void {
-  const now = Date.now();
-  _lastToastAt = now;
   el.dispatchEvent(
     new CustomEvent("hass-notification", {
       bubbles: true,
