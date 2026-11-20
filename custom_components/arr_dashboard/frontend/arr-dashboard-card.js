@@ -1,0 +1,3517 @@
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
+
+function __decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
+
+/**
+ * @license
+ * Copyright 2019 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$5=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$5.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$5.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$4,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$4(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t$1=globalThis,i$1=t=>t,s$1=t$1.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$3=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$3,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$3+x):s+o$3+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$3),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$3)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$3),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$3,t+1));)d.push({type:7,index:l}),t+=o$3.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$1.litHtmlPolyfillSupport;B?.(S,k),(t$1.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o$2=s.litElementPolyfillSupport;o$2?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
+
+/**
+ * @license
+ * Copyright 2018 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o$1=o=>o??A;
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);}):customElements.define(t,e);};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t,true,r);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t,true,r);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */function r(r){return n({...r,state:true,attribute:false})}
+
+function formatSize(bytes) {
+    if (!bytes)
+        return "";
+    const gb = bytes / 1e9;
+    return `${gb.toFixed(1)} GB`;
+}
+function confirmScreenId(kind, layoutTablet) {
+    switch (kind) {
+        case "m06":
+            return "M06";
+        case "m09":
+            return layoutTablet ? "M09T" : "M09";
+        case "m10":
+            return "M10";
+        case "d04":
+            return "D04";
+        case "d04b":
+            return "D04b";
+        default: {
+            const _exhaustive = kind;
+            return _exhaustive;
+        }
+    }
+}
+function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, setDeleteFiles, setBlockRelease, setSearchAgain, setRemoveFromClient, setAddImportExclusion) {
+    if (!confirm?.kind)
+        return A;
+    const p = confirm.payload;
+    const title = p.title;
+    const year = p.year;
+    const quality = p.quality;
+    const size = p.size;
+    let heading = "";
+    let body = "";
+    let actionLabel = "Confirm";
+    let danger = true;
+    let options = A;
+    switch (confirm.kind) {
+        case "m09":
+            heading = "Delete file and redownload?";
+            body = b `
+        <p>
+          This deletes <strong>${title}${year ? ` (${year})` : ""}</strong>
+          ${quality ? ` · ${quality}` : ""}
+          ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
+          searches for a new copy.
+        </p>
+        <p>You can’t watch it until the new download finishes.</p>
+      `;
+            actionLabel = "Delete file & redownload";
+            if (p.showBlockCheckbox) {
+                options = b `
+          <label>
+            <input
+              type="checkbox"
+              .checked=${confirm.blockRelease ?? true}
+              @change=${(e) => setBlockRelease(e.target.checked)}
+            />
+            Block this release so it isn’t downloaded again.
+          </label>
+          <p class="hint-muted">Recommended if the file was bad.</p>
+        `;
+            }
+            break;
+        case "m10":
+            heading = `Remove ${title}?`;
+            body = b `
+        <p>
+          Radarr stops tracking this movie.
+          <strong>The files stay on disk</strong> unless you tick the box below.
+        </p>
+      `;
+            actionLabel = confirm.deleteFiles
+                ? "Remove movie & delete files"
+                : "Remove movie";
+            options = b `
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.deleteFiles ?? false}
+            @change=${(e) => setDeleteFiles(e.target.checked)}
+          />
+          Also delete the movie files
+          ${size ? `(${formatSize(size)})` : ""}
+        </label>
+        <p class="hint-muted">Leave unticked to keep the files.</p>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.addImportExclusion ?? false}
+            @change=${(e) => setAddImportExclusion(e.target.checked)}
+          />
+          Don’t add it again from lists
+        </label>
+      `;
+            break;
+        case "d04":
+            heading = "Remove and blocklist this download?";
+            body = b `
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the download client and this release is blocked so it isn’t grabbed
+          again.
+        </p>
+      `;
+            actionLabel = "Remove & blocklist";
+            options = b `
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.searchAgain ?? true}
+            @change=${(e) => setSearchAgain(e.target.checked)}
+          />
+          Search for a different release
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.removeFromClient ?? true}
+            @change=${(e) => setRemoveFromClient(e.target.checked)}
+          />
+          Delete the partial download from the client
+        </label>
+      `;
+            break;
+        case "d04b":
+            heading = "Remove this download?";
+            body = b `
+        <p>
+          <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
+          the queue. Radarr may grab the same release again.
+        </p>
+      `;
+            actionLabel = "Remove download";
+            options = b `
+        <label>
+          <input
+            type="checkbox"
+            .checked=${confirm.removeFromClient ?? true}
+            @change=${(e) => setRemoveFromClient(e.target.checked)}
+          />
+          Delete the partial download from the client
+        </label>
+      `;
+            break;
+        case "m06":
+            heading = "Grab a rejected release?";
+            body = b `
+        <p>Radarr rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
+        <p class="mono">${p.releaseName ?? ""} · ${formatSize(p.size)}</p>
+      `;
+            actionLabel = "Grab anyway";
+            danger = false;
+            break;
+        default:
+            return A;
+    }
+    const screen = confirmScreenId(confirm.kind, layoutTablet);
+    return b `
+    <dialog
+      open
+      role="alertdialog"
+      data-screen=${screen}
+      aria-labelledby="confirm-title"
+      @cancel=${(e) => {
+        e.preventDefault();
+        if (!busy)
+            onCancel();
+    }}
+    >
+      <ha-icon
+        icon="mdi:alert-outline"
+        class="danger-icon"
+        style="color: var(--error-color)"
+      ></ha-icon>
+      <h2 id="confirm-title">${heading}</h2>
+      ${typeof body === "string" ? b `<p>${body}</p>` : body}
+      ${options}
+      <div class="dialog-actions">
+        <button
+          class="text"
+          ?disabled=${busy}
+          @click=${onCancel}
+          autofocus
+        >
+          Cancel
+        </button>
+        <button
+          class=${danger ? "danger" : "primary"}
+          ?disabled=${busy}
+          aria-busy=${busy ? "true" : "false"}
+          @click=${onConfirm}
+        >
+          <ha-icon icon=${danger ? "mdi:delete-forever" : "mdi:download"}></ha-icon>
+          ${busy
+        ? kindBusyLabel(confirm.kind)
+        : actionLabel}
+        </button>
+      </div>
+    </dialog>
+  `;
+}
+function kindBusyLabel(kind) {
+    switch (kind) {
+        case "m09":
+            return "Deleting…";
+        case "m10":
+            return "Removing…";
+        case "d04":
+        case "d04b":
+            return "Removing…";
+        case "m06":
+            return "Sending…";
+        default:
+            return "Working…";
+    }
+}
+
+function formatBytes(bytes) {
+    if (!bytes)
+        return "";
+    if (bytes >= 1e9)
+        return `${(bytes / 1e9).toFixed(1)} GB`;
+    if (bytes >= 1e6)
+        return `${(bytes / 1e6).toFixed(0)} MB`;
+    return `${bytes} B`;
+}
+function formatRelative(iso) {
+    if (!iso)
+        return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime()))
+        return iso;
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 2)
+        return "just now";
+    if (mins < 60)
+        return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 48)
+        return `${hrs} hr ago`;
+    return d.toLocaleDateString();
+}
+function queueProgress(row) {
+    const size = row.size ?? 0;
+    const left = row.sizeleft ?? size;
+    if (!size)
+        return 0;
+    return Math.min(100, Math.max(0, Math.round(((size - left) / size) * 100)));
+}
+function queueStatusLabel(row) {
+    const st = row.status ?? "Queued";
+    const tr = row.trackedDownloadStatus;
+    if (tr && tr !== st)
+        return `${st} · ${tr}`;
+    return st;
+}
+
+function inLibrary(movies, hit) {
+    if (hit.tmdbId) {
+        const m = movies.find((x) => x.tmdbId === hit.tmdbId);
+        if (m)
+            return m;
+    }
+    const t = (hit.title ?? "").toLowerCase();
+    return movies.find((x) => x.title?.toLowerCase() === t && x.year === hit.year);
+}
+function filterMovies(movies, chip, search, queue) {
+    let list = [...movies];
+    const q = search.trim().toLowerCase();
+    if (q) {
+        list = list.filter((m) => m.title?.toLowerCase().includes(q));
+    }
+    if (chip === "missing") {
+        list = list.filter((m) => !m.hasFile);
+    }
+    else if (chip === "downloaded") {
+        list = list.filter((m) => m.hasFile);
+    }
+    else if (chip === "in_queue") {
+        const ids = new Set(queue.map((r) => r.movie?.id).filter((id) => id != null));
+        list = list.filter((m) => ids.has(m.id));
+    }
+    return list;
+}
+function sortMovies(movies, sort) {
+    const list = [...movies];
+    switch (sort) {
+        case "added":
+            list.sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""));
+            break;
+        case "year":
+            list.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+            break;
+        case "title":
+        default:
+            list.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", undefined, {
+                sensitivity: "base",
+            }));
+            break;
+    }
+    return list;
+}
+function upcomingMovies(movies, _days) {
+    return movies.filter((m) => {
+        const st = (m.status ?? "").toLowerCase();
+        return st === "incinemas" || st === "announced" || st === "in cinemas";
+    }).slice(0, 12);
+}
+function recentMovies(movies, days) {
+    const since = Date.now() - days * 86400000;
+    return movies
+        .filter((m) => {
+        if (!m.added)
+            return false;
+        return new Date(m.added).getTime() >= since;
+    })
+        .sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""))
+        .slice(0, 12);
+}
+function indexLetters(movies) {
+    const letters = new Set();
+    for (const m of movies) {
+        const ch = (m.title ?? "?")[0]?.toUpperCase();
+        if (ch && /[A-Z]/.test(ch))
+            letters.add(ch);
+        else
+            letters.add("#");
+    }
+    return [...letters].sort();
+}
+
+const EXIT_MS = 200;
+function prefersReducedMotion() {
+    return (typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+async function animateQueueRowExit(onExitStart) {
+    onExitStart();
+    if (prefersReducedMotion())
+        return;
+    await new Promise((resolve) => window.setTimeout(resolve, EXIT_MS));
+}
+
+function sortReleases(rows, sort) {
+    const copy = [...rows];
+    switch (sort) {
+        case "size":
+            copy.sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+            break;
+        case "age":
+            copy.sort((a, b) => (a.age ?? 0) - (b.age ?? 0));
+            break;
+        case "seeders":
+            copy.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0));
+            break;
+    }
+    return copy;
+}
+function releaseQualityName(release) {
+    return release.quality?.quality?.name ?? "—";
+}
+
+function qualityNames(profile) {
+    const items = profile.items ?? [];
+    const names = [];
+    for (const item of items) {
+        const q = item.quality?.name ?? item.name;
+        if (q)
+            names.push(q);
+    }
+    return names;
+}
+function profileSummaryLine(profile) {
+    const names = qualityNames(profile);
+    if (!names.length)
+        return "";
+    if (names.length === 1)
+        return `${names[0]} only`;
+    const lowest = names[0];
+    const highest = names[names.length - 1];
+    const cutoff = profile.cutoff?.name;
+    if (cutoff) {
+        return `${lowest}–${highest} · upgrades until ${cutoff}`;
+    }
+    return `${lowest}–${highest}`;
+}
+
+function renderStatusSheet(open, health, disks, config, onClose) {
+    if (!open)
+        return A;
+    const link = config.external_link;
+    const issueCount = health.filter((h) => h.type === "warning" || h.type === "error").length;
+    const intro = issueCount > 0
+        ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+        : "Everything looks good.";
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="G02"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Radarr status">
+        <div class="sheet-header">
+          <h2>Radarr status</h2>
+          <button class="text" @click=${onClose}>Done</button>
+        </div>
+        <p class="hint-muted">${intro}</p>
+        <section>
+          <h3>Health</h3>
+          ${health.length
+        ? health.map((h) => b `
+                  <p class="status-line">
+                    <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+                    ${h.source ?? ""} · from Radarr — ${h.message}
+                  </p>
+                `)
+        : b `<p class="hint-muted">No health warnings.</p>`}
+        </section>
+        <section>
+          <h3>Disk space</h3>
+          ${disks.map((d) => b `
+              <p class="status-line mono">
+                ${d.path}: ${formatBytes(d.freeSpace)} free of
+                ${formatBytes(d.totalSpace)}
+              </p>
+            `)}
+        </section>
+        ${link
+        ? b `
+              <a
+                class="primary link-button"
+                href=${String(link)}
+                target="_blank"
+                rel="noopener"
+              >
+                Open Radarr
+              </a>
+            `
+        : A}
+      </div>
+    </div>
+  `;
+}
+function renderFailureSheet(title, detail, onClose) {
+    if (!detail)
+        return A;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="G05"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Failure details">
+        <h2>${title}</h2>
+        <p class="mono">${detail}</p>
+        <button class="primary" @click=${onClose}>Close</button>
+      </div>
+    </div>
+  `;
+}
+function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, rootPath, searchOnAdd, monitored, minAvailability, busy, offline, setProfile, setRoot, setSearchOnAdd, setMonitored, setMinAvail, onCancel, onConfirm) {
+    if (!open || !pick)
+        return A;
+    const screen = layoutTablet ? "A04T" : "A04";
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen=${screen}
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onCancel();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Add movie">
+        <h2>Add ${pick.title}${pick.year ? ` (${pick.year})` : ""}</h2>
+        <label>
+          Quality profile
+          <select
+            .value=${String(profileId ?? "")}
+            @change=${(e) => setProfile(Number(e.target.value))}
+          >
+            ${profiles.map((p) => b `
+                <option value=${p.id} ?selected=${p.id === profileId}>
+                  ${p.name}
+                </option>
+              `)}
+          </select>
+        </label>
+        <label>
+          Save to
+          <select
+            .value=${rootPath ?? ""}
+            @change=${(e) => setRoot(e.target.value)}
+          >
+            ${roots.map((f) => b `
+                <option value=${f.path} ?selected=${f.path === rootPath}>
+                  ${f.path}
+                </option>
+              `)}
+          </select>
+        </label>
+        <details>
+          <summary>More options</summary>
+          <label>
+            Minimum availability
+            <select
+              .value=${minAvailability}
+              @change=${(e) => setMinAvail(e.target.value)}
+            >
+              <option value="announced">Announced</option>
+              <option value="inCinemas">In cinemas</option>
+              <option value="released">Released</option>
+            </select>
+          </label>
+        </details>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${searchOnAdd}
+            @change=${(e) => setSearchOnAdd(e.target.checked)}
+          />
+          Start searching now
+        </label>
+        <p class="hint-muted">Radarr looks for a download straight away.</p>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${monitored}
+            @change=${(e) => setMonitored(e.target.checked)}
+          />
+          Monitor this movie
+        </label>
+        <p class="hint-muted">
+          Radarr grabs it when it's released and upgrades it later.
+        </p>
+        <div class="dialog-actions">
+          <button class="text" @click=${onCancel}>Cancel</button>
+          <button
+            class="primary"
+            data-action="add-movie"
+            ?disabled=${offline || busy}
+            @click=${onConfirm}
+          >
+            ${busy ? "Adding…" : "Add movie"}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderQualitySheet(open, movieTitle, movieYear, profiles, currentId, pendingId, searchAfter, busy, setSearch, onSelect, onSave, onClose) {
+    if (!open)
+        return A;
+    const current = profiles.find((p) => p.id === currentId);
+    const changed = pendingId !== undefined && pendingId !== currentId;
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="M08"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel quality-sheet" role="dialog">
+        <h2>Change quality profile</h2>
+        <p class="hint-muted">
+          ${movieTitle ?? "Movie"}${movieYear ? ` (${movieYear})` : ""} · now
+          ${current?.name ?? "—"}
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${searchAfter}
+            @change=${(e) => setSearch(e.target.checked)}
+          />
+          Search for a matching release now
+        </label>
+        <p class="hint-muted">
+          Your current file stays until a better one is imported.
+        </p>
+        <div class="profile-radio-list" role="radiogroup">
+          ${profiles.map((p) => b `
+              <label class="profile-radio ${p.id === pendingId ? "selected" : ""}">
+                <input
+                  type="radio"
+                  name="quality-profile"
+                  .checked=${p.id === pendingId}
+                  @change=${() => onSelect(p.id)}
+                />
+                <span class="profile-radio-body">
+                  <span class="profile-name"
+                    >${p.name}
+                    ${p.id === currentId ? b ` · current` : A}</span
+                  >
+                  <span class="profile-summary">${profileSummaryLine(p)}</span>
+                </span>
+              </label>
+            `)}
+        </div>
+        <div class="dialog-actions">
+          <button class="text" @click=${onClose}>Cancel</button>
+          <button
+            class="primary"
+            ?disabled=${!changed || busy}
+            @click=${onSave}
+          >
+            ${busy ? "Saving…" : "Save profile"}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderQueueOverflowSheet(open, title, year, hideDestructive, offline, onClose, onRemove, onBlocklist) {
+    return b `
+    <div
+      class="sheet-backdrop"
+      data-screen="D03"
+      @click=${(e) => {
+        if (e.target === e.currentTarget)
+            onClose();
+    }}
+    >
+      <div class="sheet-panel" role="dialog" aria-label="Download actions">
+        <h2>${title}${year ? ` (${year})` : ""}</h2>
+        ${hideDestructive
+        ? b `<p class="hint-muted">
+              Removing is turned off on this dashboard.
+            </p>`
+        : b `
+              <button
+                class="outline-danger"
+                data-action="queue-remove"
+                ?disabled=${offline}
+                @click=${onRemove}
+              >
+                Remove download
+              </button>
+              <button
+                class="outline-danger"
+                ?disabled=${offline}
+                @click=${onBlocklist}
+              >
+                Remove & blocklist
+              </button>
+            `}
+        <button class="text" @click=${onClose}>Close</button>
+      </div>
+    </div>
+  `;
+}
+
+/** Spec §10 confirm and §11 toast copy (exact labels). */
+function toastAdded(title, searchOn) {
+    return searchOn
+        ? `Added ${title}. Searching for a download…`
+        : `Added ${title}. It won't download until you search.`;
+}
+function toastSearchAgain(title) {
+    return `Searching for ${title}…`;
+}
+function toastGrab() {
+    return "Sent to download client. Watch it in Downloading.";
+}
+function toastRemoveSearchAgain(title) {
+    return `Removed ${title} and blocked the release. Searching for another…`;
+}
+function toastRemoveQueue(title) {
+    return `Removed ${title} from downloads.`;
+}
+function toastRemoveBlocklist(title, search) {
+    return search
+        ? `Removed ${title} and blocked the release. Searching for another…`
+        : `Removed ${title} and blocked the release.`;
+}
+function toastRetryImport(title) {
+    return `Retrying import for ${title}…`;
+}
+function toastProfile(name, searching) {
+    return searching
+        ? `Quality profile set to ${name}. Searching…`
+        : `Quality profile set to ${name}.`;
+}
+function toastMonitorOn(title) {
+    return `Monitoring on for ${title}.`;
+}
+function toastMonitorOff(title) {
+    return `Monitoring off for ${title}. Radarr won't download or upgrade it.`;
+}
+function toastDeleteRedownload(title) {
+    return `Deleted the file. Searching for a new copy of ${title}…`;
+}
+function toastRemoveMovie(title, deleted) {
+    return deleted
+        ? `Removed ${title} and deleted its files.`
+        : `Removed ${title}.`;
+}
+function toastGone() {
+    return "That movie was already removed.";
+}
+function toastRadarrBack() {
+    return "Radarr is back.";
+}
+const FAILURE_VERBS = {
+    add_movie: "add the movie",
+    movie_search: "start the search",
+    grab_release: "send the release",
+    queue_remove: "remove the download",
+    retry_import: "retry the import",
+    set_quality_profile: "change the profile",
+    set_monitored: "update monitoring",
+    delete_file_redownload: "delete the file",
+    remove_movie: "remove the movie",
+};
+
+const cardStyles = i$3 `
+  :host {
+    display: block;
+    --arr-accent-text: color-mix(
+      in srgb,
+      var(--primary-color) 70%,
+      var(--primary-text-color)
+    );
+    --arr-accent-fill: color-mix(in srgb, var(--primary-color) 80%, black);
+    --arr-danger-fill: color-mix(in srgb, var(--error-color) 80%, black);
+    --arr-danger-text: color-mix(
+      in srgb,
+      var(--error-color) 85%,
+      var(--primary-text-color)
+    );
+    --arr-warn-text: color-mix(
+      in srgb,
+      var(--warning-color) 75%,
+      var(--primary-text-color)
+    );
+    --arr-warn-ui: color-mix(
+      in srgb,
+      var(--warning-color) 65%,
+      var(--primary-text-color)
+    );
+    --arr-ok-text: color-mix(
+      in srgb,
+      var(--success-color) 70%,
+      var(--primary-text-color)
+    );
+  }
+
+  ha-card {
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.25rem;
+    font-weight: 500;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 16px;
+    background: var(--card-background-color);
+    border: 1px solid var(--divider-color);
+    font-size: 0.85rem;
+    min-height: 32px;
+    cursor: default;
+  }
+
+  .chip-button {
+    cursor: pointer;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--divider-color);
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    font: inherit;
+    min-height: 48px;
+  }
+
+  .tab[aria-selected="true"] {
+    color: var(--arr-accent-text);
+    border-bottom-color: var(--primary-color);
+  }
+
+  .badge {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    background: var(--arr-accent-fill);
+    color: #fff;
+  }
+
+  .badge.warn {
+    background: var(--arr-warn-ui);
+  }
+
+  .badge.error {
+    background: var(--error-color);
+  }
+
+  button.primary {
+    background: var(--arr-accent-fill);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    min-height: 48px;
+  }
+
+  button.danger {
+    background: var(--arr-danger-fill);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    min-height: 48px;
+  }
+
+  button.outline-danger {
+    border: 1px solid var(--arr-danger-text);
+    color: var(--arr-danger-text);
+    background: transparent;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    min-height: 48px;
+  }
+
+  button.text {
+    border: none;
+    background: transparent;
+    color: var(--arr-accent-text);
+    cursor: pointer;
+    padding: 8px;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button:focus-visible,
+  .tab:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  .banner {
+    padding: 12px;
+    margin-bottom: 12px;
+    background: color-mix(in srgb, var(--error-color) 15%, var(--card-background-color));
+    border-radius: 4px;
+    color: var(--primary-text-color);
+  }
+
+  .offline-dim {
+    opacity: 0.55;
+    filter: grayscale(0.8);
+    pointer-events: none;
+  }
+
+  .hint-muted {
+    color: var(--secondary-text-color);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .arr-virtual-host {
+    display: block;
+    overflow: auto;
+    max-height: var(--arr-virtual-height, 520px);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 12px;
+  }
+
+  .poster-btn {
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .poster-btn img {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 4px;
+    background: var(--divider-color);
+  }
+
+  .queue-row {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider-color);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .queue-row.exiting {
+    animation: queue-row-exit 200ms ease forwards;
+  }
+
+  @keyframes queue-row-exit {
+    to {
+      opacity: 0;
+      transform: translateX(-12px);
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .queue-row.exiting {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
+  .profile-radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 12px 0;
+  }
+
+  .profile-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 56px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .profile-radio.selected {
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  }
+
+  .profile-radio-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .profile-summary {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+  }
+
+  .release-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .release-chip {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+  }
+
+  .best-match-pill {
+    font-size: 0.75rem;
+    color: var(--arr-accent-text);
+  }
+
+  .queue-row.attention::before {
+    content: "";
+    position: absolute;
+    left: -16px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--error-color);
+  }
+
+  .queue-row.attention.warn::before {
+    background: var(--arr-warn-ui);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+
+  .pill.failed {
+    color: var(--arr-danger-text);
+    background: color-mix(in srgb, var(--error-color) 15%, transparent);
+  }
+
+  .search-field {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--divider-color);
+    border-radius: 4px;
+    font: inherit;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+  }
+
+  .layout-tablet .tab {
+    min-height: 60px;
+    font-size: 17px;
+  }
+
+  .layout-tablet button {
+    min-height: 56px;
+    font-size: 17px;
+  }
+
+  .compact .chips .chip:not(.health) {
+    display: none;
+  }
+
+  dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: min(520px, 90vw);
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    box-shadow: var(--ha-card-box-shadow, 0 4px 24px rgba(0, 0, 0, 0.2));
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 12px;
+  }
+
+  .live-region {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .layout-body {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .main-pane {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .with-side-panel .main-pane {
+    flex: 1 1 55%;
+  }
+
+  .side-panel {
+    flex: 0 0 40%;
+    max-width: 420px;
+    border-left: 1px solid var(--divider-color);
+    padding-left: 16px;
+    max-height: 70vh;
+    overflow: auto;
+  }
+
+  .compact ha-card {
+    padding: 10px;
+  }
+
+  .compact .header .title-row {
+    font-size: 1rem;
+  }
+
+  .mono {
+    font-family: var(--code-font-family, monospace);
+    font-size: 0.85rem;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: var(--divider-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+  }
+
+  .queue-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .queue-meta {
+    color: var(--secondary-text-color);
+    font-size: 0.85rem;
+  }
+
+  .queue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .overflow-btn {
+    align-self: flex-start;
+    font-size: 1.25rem;
+  }
+
+  .pill.ok {
+    color: var(--arr-ok-text);
+    background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+
+  .filter-chip {
+    border: 1px solid var(--divider-color);
+    background: var(--card-background-color);
+    border-radius: 16px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font: inherit;
+    min-height: 36px;
+  }
+
+  .filter-chip.active {
+    border-color: var(--primary-color);
+    color: var(--arr-accent-text);
+  }
+
+  .sort-select {
+    margin-left: auto;
+    padding: 6px;
+    font: inherit;
+  }
+
+  .list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 8px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .list-row.selected {
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  }
+
+  .list-row .thumb {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+
+  .poster-btn.small img {
+    width: 80px;
+  }
+
+  .h-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .row-section h3 {
+    margin: 8px 0;
+    font-size: 1rem;
+  }
+
+  .library-with-rail {
+    display: flex;
+    gap: 8px;
+  }
+
+  .az-rail {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.7rem;
+    color: var(--secondary-text-color);
+    padding: 4px;
+    user-select: none;
+  }
+
+  .skeleton-block,
+  .skeleton-list {
+    min-height: 120px;
+    background: linear-gradient(
+      90deg,
+      var(--divider-color) 25%,
+      transparent 50%,
+      var(--divider-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+    border-radius: 4px;
+    margin: 12px 0;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .lookup-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 10;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .layout-tablet .sheet-backdrop {
+    align-items: center;
+  }
+
+  .sheet-panel {
+    width: min(520px, 100%);
+    max-height: 85vh;
+    overflow: auto;
+    background: var(--card-background-color);
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    box-shadow: var(--ha-card-box-shadow, 0 -4px 24px rgba(0, 0, 0, 0.2));
+  }
+
+  .layout-tablet .sheet-panel {
+    border-radius: 12px;
+  }
+
+  .sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-line {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 8px 0;
+  }
+
+  .link-button {
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  .detail-dialog,
+  .release-dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    max-width: min(640px, 95vw);
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    box-shadow: var(--ha-card-box-shadow, 0 4px 24px rgba(0, 0, 0, 0.2));
+    margin-top: 12px;
+  }
+
+  .detail-poster {
+    max-width: 160px;
+    border-radius: 4px;
+    float: left;
+    margin: 0 12px 12px 0;
+  }
+
+  .detail-dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 0.9rem;
+  }
+
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .overview {
+    clear: both;
+    color: var(--secondary-text-color);
+    font-size: 0.9rem;
+  }
+
+  .release-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .release-row.rejected {
+    opacity: 0.85;
+  }
+
+  .error-text {
+    color: var(--error-color);
+  }
+
+  .danger-icon {
+    margin-bottom: 8px;
+  }
+`;
+
+function showToast(el, message, actionText, onAction) {
+    el.dispatchEvent(new CustomEvent("hass-notification", {
+        bubbles: true,
+        composed: true,
+        detail: {
+            message,
+            duration: actionText ? 8000 : 4000,
+            action: actionText
+                ? {
+                    text: actionText,
+                    action: () => {
+                    },
+                }
+                : undefined,
+        },
+    }));
+}
+function showActionFailure(el, command, err) {
+    const verb = FAILURE_VERBS[command] ?? "complete the action";
+    const message = err instanceof Error ? err.message : String(err);
+    showToast(el, `Couldn't ${verb}. Radarr said: ${message}`, "Details");
+}
+
+/**
+ * Virtual scroller that renders into light DOM so parent card styles apply.
+ */
+let ArrVirtualList = class ArrVirtualList extends i {
+    constructor() {
+        super(...arguments);
+        this.itemHeight = 72;
+        this.itemCount = 0;
+        this.columns = 1;
+        this.rowClass = "";
+        this._scrollTop = 0;
+        this._height = 400;
+    }
+    createRenderRoot() {
+        return this;
+    }
+    _rowCount() {
+        if (this.columns <= 1)
+            return this.itemCount;
+        return Math.ceil(this.itemCount / this.columns);
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this.classList.add("arr-virtual-host");
+        this._onScrollBound = this._onScroll.bind(this);
+        this.addEventListener("scroll", this._onScrollBound);
+        this._ro = new ResizeObserver(() => {
+            this._height = this.clientHeight;
+        });
+        this._ro.observe(this);
+    }
+    disconnectedCallback() {
+        if (this._onScrollBound) {
+            this.removeEventListener("scroll", this._onScrollBound);
+        }
+        this._ro?.disconnect();
+        super.disconnectedCallback();
+    }
+    _onScroll() {
+        this._scrollTop = this.scrollTop;
+    }
+    render() {
+        const rows = this._rowCount();
+        const buffer = this.itemHeight * 4;
+        const total = rows * this.itemHeight;
+        const startRow = Math.max(0, Math.floor((this._scrollTop - buffer) / this.itemHeight));
+        const visibleRows = Math.ceil((this._height + buffer * 2) / this.itemHeight);
+        const endRow = Math.min(rows, startRow + visibleRows);
+        const rowNodes = [];
+        for (let row = startRow; row < endRow; row++) {
+            const startIndex = row * this.columns;
+            if (this.columns <= 1) {
+                rowNodes.push(this.renderItem(startIndex));
+            }
+            else if (this.renderRow) {
+                const count = Math.min(this.columns, this.itemCount - startIndex);
+                rowNodes.push(b `<div class=${this.rowClass} role="presentation">
+            ${this.renderRow(startIndex, count)}
+          </div>`);
+            }
+        }
+        return b `
+      <div class="viewport" style="position:relative;width:100%">
+        <div class="spacer" style="height:${total}px;width:100%"></div>
+        <div
+          class="window"
+          style="position:absolute;left:0;right:0;top:0;transform:translateY(${startRow * this.itemHeight}px)"
+        >
+          ${rowNodes}
+        </div>
+      </div>
+    `;
+    }
+};
+__decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "itemHeight", void 0);
+__decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "itemCount", void 0);
+__decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "columns", void 0);
+__decorate([
+    n({ type: String })
+], ArrVirtualList.prototype, "rowClass", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrVirtualList.prototype, "renderItem", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrVirtualList.prototype, "renderRow", void 0);
+__decorate([
+    r()
+], ArrVirtualList.prototype, "_scrollTop", void 0);
+__decorate([
+    r()
+], ArrVirtualList.prototype, "_height", void 0);
+ArrVirtualList = __decorate([
+    t("arr-virtual-list")
+], ArrVirtualList);
+
+const posterSignCache = new Map();
+async function signPosterPath(hass, path) {
+    if (!path.startsWith("/api/arr_dashboard")) {
+        return path;
+    }
+    const cached = posterSignCache.get(path);
+    if (cached)
+        return cached;
+    const res = (await hass.callWS({
+        type: "auth/sign_path",
+        path,
+        expires: 60 * 60,
+    }));
+    posterSignCache.set(path, res.path);
+    return res.path;
+}
+async function callArr(hass, entryId, command, data) {
+    return hass.callWS({
+        type: "arr_dashboard",
+        entry_id: entryId,
+        command,
+        data: data ?? {},
+    });
+}
+async function resolveEntryId(hass, instance) {
+    const entries = (await hass.callWS({
+        type: "config_entries/get",
+        domain: "arr_dashboard",
+    }));
+    const arr = entries.filter((e) => e.domain === "arr_dashboard");
+    if (!arr.length)
+        return undefined;
+    if (!instance)
+        return arr[0].entry_id;
+    const match = arr.find((e) => e.entry_id === instance || e.title === instance);
+    if (!match)
+        return undefined;
+    return match.entry_id;
+}
+
+let ArrCardEditor = class ArrCardEditor extends i {
+    constructor() {
+        super(...arguments);
+        this._config = {};
+    }
+    setConfig(config) {
+        this._config = { ...config };
+    }
+    createRenderRoot() {
+        return this;
+    }
+    _value(key) {
+        return this._config[key];
+    }
+    _set(key, value) {
+        this._config = { ...this._config, [key]: value };
+        this.dispatchEvent(new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+    _toggleTab(tab, on) {
+        const cur = [...(this._value("tabs") ?? ["add", "downloading", "library"])];
+        const next = on
+            ? [...new Set([...cur, tab])]
+            : cur.filter((t) => t !== tab);
+        if (next.length)
+            this._set("tabs", next);
+    }
+    _toggleChip(chip, on) {
+        const cur = [...(this._value("show_header_chips") ?? ["disk", "queue", "health"])];
+        const next = on
+            ? [...new Set([...cur, chip])]
+            : cur.filter((c) => c !== chip);
+        this._set("show_header_chips", next);
+    }
+    _toggleRow(row, on) {
+        const cur = [...(this._value("show_rows") ?? [])];
+        const next = on ? [...new Set([...cur, row])] : cur.filter((r) => r !== row);
+        this._set("show_rows", next);
+    }
+    render() {
+        const tabs = this._value("tabs") ?? ["add", "downloading", "library"];
+        const ad = this._value("add_defaults") ?? {};
+        const hide = Boolean(this._value("hide_destructive_actions"));
+        return b `
+      <div class="card-config">
+          <h3>General</h3>
+          <label>
+            Title
+            <input
+              .value=${String(this._value("title") ?? "Movies")}
+              @change=${(e) => this._set("title", e.target.value)}
+            />
+          </label>
+          <label>
+            Icon (MDI)
+            <input
+              .value=${String(this._value("icon") ?? "mdi:movie-open")}
+              @change=${(e) => this._set("icon", e.target.value)}
+            />
+          </label>
+          <label>
+            Instance
+            <input
+              .value=${String(this._value("instance") ?? "")}
+              @change=${(e) => this._set("instance", e.target.value)}
+            />
+          </label>
+          <label>
+            Compact
+            <select
+              .value=${this._value("compact") === true
+            ? "true"
+            : this._value("compact") === false
+                ? "false"
+                : "auto"}
+              @change=${(e) => {
+            const v = e.target.value;
+            this._set("compact", v === "auto" ? "auto" : v === "true");
+        }}
+            >
+              <option value="auto">Auto</option>
+              <option value="true">Always</option>
+              <option value="false">Never</option>
+            </select>
+          </label>
+          <label>
+            Layout
+            <select
+              .value=${String(this._value("layout") ?? "auto")}
+              @change=${(e) => this._set("layout", e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="phone">Phone</option>
+              <option value="tablet">Tablet</option>
+            </select>
+          </label>
+          <label>
+            Open Radarr URL (status sheet)
+            <input
+              .value=${String(this._value("external_link") === false
+            ? ""
+            : this._value("external_link") ?? "")}
+              @change=${(e) => {
+            const v = e.target.value.trim();
+            this._set("external_link", v ? v : false);
+        }}
+            />
+          </label>
+
+          <h3>Tabs</h3>
+          <label>
+            Default tab
+            <select
+              .value=${String(this._value("default_tab") ?? "library")}
+              @change=${(e) => this._set("default_tab", e.target.value)}
+            >
+              <option value="library">Library</option>
+              <option value="downloading">Downloading</option>
+              <option value="add">Add</option>
+            </select>
+          </label>
+          <p>Show tabs:</p>
+          ${["add", "downloading", "library"].map((t) => b `
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${tabs.includes(t)}
+                  @change=${(e) => this._toggleTab(t, e.target.checked)}
+                />
+                ${t}
+              </label>
+            `)}
+          <p>Header chips:</p>
+          ${["disk", "queue", "health"].map((c) => b `
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${(this._value("show_header_chips") ?? [
+            "disk",
+            "queue",
+            "health",
+        ]).includes(c)}
+                  @change=${(e) => this._toggleChip(c, e.target.checked)}
+                />
+                ${c}
+              </label>
+            `)}
+
+          <h3>Library</h3>
+          <p>Home rows:</p>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${(this._value("show_rows") ?? []).includes("upcoming")}
+              @change=${(e) => this._toggleRow("upcoming", e.target.checked)}
+            />
+            Upcoming
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${(this._value("show_rows") ?? []).includes("recent")}
+              @change=${(e) => this._toggleRow("recent", e.target.checked)}
+            />
+            Recent
+          </label>
+          <label>
+            Upcoming window (days)
+            <input
+              type="number"
+              min="1"
+              .value=${String(this._value("upcoming_days") ?? 14)}
+              @change=${(e) => this._set("upcoming_days", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Recent window (days)
+            <input
+              type="number"
+              min="1"
+              .value=${String(this._value("recent_days") ?? 7)}
+              @change=${(e) => this._set("recent_days", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Default view
+            <select
+              .value=${String(this._value("library_view") ?? "grid")}
+              @change=${(e) => this._set("library_view", e.target.value)}
+            >
+              <option value="grid">Grid</option>
+              <option value="list">List</option>
+            </select>
+          </label>
+          <label>
+            Default sort
+            <select
+              .value=${String(this._value("library_sort") ?? "title")}
+              @change=${(e) => this._set("library_sort", e.target.value)}
+            >
+              <option value="title">Title</option>
+              <option value="added">Added</option>
+              <option value="year">Year</option>
+            </select>
+          </label>
+          <label>
+            Default filter
+            <select
+              .value=${String(this._value("library_filter") ?? "all")}
+              @change=${(e) => this._set("library_filter", e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="missing">Missing</option>
+              <option value="downloaded">Downloaded</option>
+            </select>
+          </label>
+
+          <h3>Add defaults</h3>
+          <label>
+            Quality profile name
+            <input
+              .value=${String(ad.quality_profile ?? "")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            quality_profile: e.target.value,
+        })}
+            />
+          </label>
+          <label>
+            Root folder path
+            <input
+              .value=${String(ad.root_folder ?? "")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            root_folder: e.target.value,
+        })}
+            />
+          </label>
+          <label>
+            Minimum availability
+            <select
+              .value=${String(ad.minimum_availability ?? "released")}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            minimum_availability: e.target.value,
+        })}
+            >
+              <option value="announced">Announced</option>
+              <option value="inCinemas">In cinemas</option>
+              <option value="released">Released</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${ad.search_on_add !== false}
+              @change=${(e) => this._set("add_defaults", {
+            ...ad,
+            search_on_add: e.target.checked,
+        })}
+            />
+            Start searching now (default for Add movie)
+          </label>
+
+          <section data-screen="S01" class="sonarr-preview">
+            <h3>Sonarr (later)</h3>
+            <p class="hint">
+              Same card will support TV series with seasons and episodes (spec
+              §15). Radarr v1 uses the screens above.
+            </p>
+          </section>
+
+          <h3>Safety</h3>
+          <label>
+            <input
+              type="checkbox"
+              .checked=${hide}
+              @change=${(e) => this._set("hide_destructive_actions", e.target.checked)}
+            />
+            Hide fix and remove buttons on this dashboard
+          </label>
+          <p class="hint">
+            Hides buttons only. It doesn't change who is allowed to do what in
+            Radarr.
+          </p>
+      </div>
+    `;
+    }
+};
+__decorate([
+    n({ attribute: false })
+], ArrCardEditor.prototype, "lovelace", void 0);
+__decorate([
+    r()
+], ArrCardEditor.prototype, "_config", void 0);
+ArrCardEditor = __decorate([
+    t("arr-card-editor")
+], ArrCardEditor);
+
+const LOOKUP_DEBOUNCE_MS = 400;
+const RELEASE_CACHE_MS = 5 * 60 * 1000;
+const VIRTUAL_THRESHOLD = 50;
+function queueNeedsAttention(item) {
+    const st = (item.status || "").toLowerCase();
+    const tr = (item.trackedDownloadStatus || "").toLowerCase();
+    return (st === "failed" ||
+        tr.includes("failed") ||
+        tr.includes("importpending") ||
+        tr.includes("importblocked") ||
+        st === "warning");
+}
+let ArrDashboardCard = class ArrDashboardCard extends i {
+    constructor() {
+        super(...arguments);
+        this._tab = "library";
+        this._loading = true;
+        this._confirm = null;
+        this._confirmBusy = false;
+        this._addQuery = "";
+        this._addPhase = "start";
+        this._lookupResults = [];
+        this._addError = "";
+        this._addSheetOpen = false;
+        this._addSearchOn = true;
+        this._addMonitored = true;
+        this._addMinAvail = "released";
+        this._addBusy = false;
+        this._libraryChip = "all";
+        this._librarySearch = "";
+        this._librarySort = "title";
+        this._libraryView = "grid";
+        this._compact = false;
+        this._statusOpen = false;
+        this._failureDetail = "";
+        this._qualityOpen = false;
+        this._qualitySearch = true;
+        this._showAllDownloads = false;
+        this._releases = [];
+        this._showRejected = false;
+        this._releaseBusy = false;
+        this._releaseSort = "match";
+        this._exitingQueueIds = [];
+        this._qualityBusy = false;
+        this._searchAgainBusy = false;
+        this._grabOkScreen = false;
+        this._failCount = 0;
+        this._releaseCache = new Map();
+        this._lastFullRefresh = 0;
+        this._pageVisible = true;
+        this._fullRefreshMs = 5 * 60 * 1000;
+    }
+    setConfig(config) {
+        if (!config.type) {
+            throw new Error("Invalid configuration");
+        }
+        this.config = {
+            title: "Movies",
+            icon: "mdi:movie-open",
+            tabs: ["add", "downloading", "library"],
+            default_tab: "library",
+            compact: "auto",
+            layout: "auto",
+            show_header_chips: ["disk", "queue", "health"],
+            hide_destructive_actions: false,
+            add_defaults: { search_on_add: true },
+            show_rows: [],
+            upcoming_days: 14,
+            recent_days: 7,
+            library_view: "grid",
+            library_sort: "title",
+            library_filter: "all",
+            external_link: false,
+            ...config,
+            type: config.type || "custom:arr-card",
+        };
+        this._tab = this.config.default_tab ?? "library";
+        const lf = this.config.library_filter ?? "all";
+        this._libraryChip =
+            lf === "missing" || lf === "downloaded" ? lf : "all";
+        this._librarySort = this.config.library_sort ?? "title";
+        this._libraryView = this.config.library_view ?? "grid";
+        const ad = this.config.add_defaults ?? {};
+        this._addSearchOn = ad.search_on_add !== false;
+        this._addMinAvail = ad.minimum_availability ?? "released";
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        this._ro = new ResizeObserver((entries) => {
+            const w = entries[0]?.contentRect.width ?? 400;
+            const compactCfg = this.config?.compact ?? "auto";
+            this._compact =
+                compactCfg === true || (compactCfg === "auto" && w < 340);
+        });
+        this._ro.observe(this);
+    }
+    firstUpdated() {
+        void this._bootstrap();
+        this._onVisibility = () => {
+            this._pageVisible = document.visibilityState !== "hidden";
+            if (this._pageVisible)
+                void this._refresh();
+        };
+        document.addEventListener("visibilitychange", this._onVisibility);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._ro?.disconnect();
+        if (this._refreshTimer)
+            clearInterval(this._refreshTimer);
+        if (this._lookupTimer)
+            clearTimeout(this._lookupTimer);
+        if (this._onVisibility) {
+            document.removeEventListener("visibilitychange", this._onVisibility);
+        }
+    }
+    async _bootstrap() {
+        if (!this.hass)
+            return;
+        try {
+            const eid = await resolveEntryId(this.hass, this.config?.instance);
+            if (!eid) {
+                this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+                this._loading = false;
+                return;
+            }
+            this._entryId = eid;
+            await this._refresh();
+            this._schedulePoll();
+        }
+        catch {
+            this._configError =
+                "Movies card can't start. Check the Arr integration in Settings.";
+            this._loading = false;
+        }
+    }
+    _schedulePoll() {
+        if (this._refreshTimer)
+            clearInterval(this._refreshTimer);
+        const ms = this._tab === "downloading" ? 5000 : 30000;
+        this._refreshTimer = setInterval(() => {
+            if (!this._pageVisible)
+                return;
+            void this._refresh();
+        }, ms);
+    }
+    async _refresh() {
+        if (!this._entryId || !this.hass || !this._pageVisible)
+            return;
+        const queueOnly = this._tab === "downloading" &&
+            Date.now() - this._lastFullRefresh < this._fullRefreshMs;
+        try {
+            const data = (await callArr(this.hass, this._entryId, "get_state", queueOnly ? { scope: "queue" } : undefined));
+            const wasOff = this._offline;
+            if (queueOnly && this._state) {
+                this._state = {
+                    ...this._state,
+                    reachable: data.reachable,
+                    queue: data.queue,
+                    queue_count: data.queue_count,
+                    health: data.health,
+                    disk_space: data.disk_space,
+                    last_success: data.last_success,
+                };
+            }
+            else {
+                await this._signMoviePosters(data.movies ?? []);
+                this._state = data;
+                this._lastFullRefresh = Date.now();
+            }
+            this._failCount = 0;
+            if (!data.reachable)
+                this._failCount = 3;
+            if (wasOff && !this._offline) {
+                showToast(this, toastRadarrBack());
+            }
+        }
+        catch {
+            this._failCount += 1;
+        }
+        finally {
+            this._loading = false;
+        }
+    }
+    async _signMoviePosters(movies) {
+        if (!this.hass)
+            return;
+        await Promise.all(movies.map(async (m) => {
+            const url = m.posterUrl;
+            if (url?.startsWith("/api/arr_dashboard")) {
+                m.posterUrl = await signPosterPath(this.hass, url);
+            }
+        }));
+    }
+    /** UI-only; the integration still accepts every websocket command (§2.2). */
+    get _hideDestructive() {
+        return Boolean(this.config.hide_destructive_actions);
+    }
+    get _offline() {
+        return this._failCount >= 3 || this._state?.reachable === false;
+    }
+    get _gridColumns() {
+        if (this._libraryView === "list")
+            return 1;
+        if (this._compact)
+            return 2;
+        if (this._layoutTablet)
+            return 4;
+        return 3;
+    }
+    get _layoutTablet() {
+        const cfg = this.config ?? {};
+        return cfg.layout === "tablet" || (cfg.layout === "auto" && !this._compact);
+    }
+    async _ws(command, data) {
+        if (!this._entryId || !this.hass)
+            throw new Error("No instance");
+        return callArr(this.hass, this._entryId, command, data);
+    }
+    _switchTab(tab) {
+        this._tab = tab;
+        this._schedulePoll();
+    }
+    _sortedLibrary() {
+        const movies = this._state?.movies ?? [];
+        const queue = this._state?.queue?.records ?? [];
+        const filtered = filterMovies(movies, this._libraryChip, this._librarySearch, queue);
+        return sortMovies(filtered, this._librarySort);
+    }
+    _queueRecords() {
+        const rec = this._state?.queue?.records ?? [];
+        return [...rec].sort((a, b) => {
+            const aw = queueNeedsAttention(a) ? 0 : 1;
+            const bw = queueNeedsAttention(b) ? 0 : 1;
+            return aw - bw;
+        });
+    }
+    _scheduleLookup(_force = false) {
+        if (this._lookupTimer)
+            clearTimeout(this._lookupTimer);
+        const q = this._addQuery.trim();
+        if (q.length < 2) {
+            this._addPhase = "start";
+            this._lookupResults = [];
+            this._addError = "";
+            return;
+        }
+        this._addPhase = "searching";
+        this._lookupTimer = setTimeout(() => void this._doLookup(), LOOKUP_DEBOUNCE_MS);
+    }
+    async _doLookup() {
+        const q = this._addQuery.trim();
+        if (q.length < 2)
+            return;
+        try {
+            const res = (await this._ws("lookup", { term: q }));
+            this._lookupResults = res.results?.slice(0, 25) ?? [];
+            this._addPhase = this._lookupResults.length ? "results" : "no_results";
+            this._addError = "";
+        }
+        catch (err) {
+            this._addPhase = "error";
+            this._addError = err instanceof Error ? err.message : String(err);
+        }
+    }
+    _openAddSheet(hit) {
+        const profiles = this._state?.quality_profiles ?? [];
+        const roots = this._state?.root_folders ?? [];
+        const defaults = this.config.add_defaults ?? {};
+        const profile = profiles.find((p) => p.name === defaults.quality_profile) ??
+            profiles[0];
+        const root = roots.find((f) => f.path === defaults.root_folder) ?? roots[0];
+        this._addPick = hit;
+        this._addProfileId = profile?.id;
+        this._addRootPath = root?.path;
+        this._addSearchOn = defaults.search_on_add !== false;
+        this._addMonitored = true;
+        this._addMinAvail = defaults.minimum_availability ?? "released";
+        this._addSheetOpen = true;
+        this._addPhase = "sheet";
+    }
+    async _confirmAddMovie() {
+        if (!this._addPick)
+            return;
+        this._addBusy = true;
+        try {
+            const r = this._addPick;
+            await this._ws("add_movie", {
+                title: r.title,
+                year: r.year,
+                tmdbId: r.tmdbId,
+                imdbId: r.imdbId,
+                quality_profile_id: this._addProfileId,
+                root_folder_path: this._addRootPath,
+                search_on_add: this._addSearchOn,
+                monitored: this._addMonitored,
+                minimum_availability: this._addMinAvail,
+            });
+            showToast(this, toastAdded(String(r.title), this._addSearchOn));
+            this._addSheetOpen = false;
+            this._addPick = undefined;
+            this._addPhase = "added";
+            this._addQuery = "";
+            this._lookupResults = [];
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("add_movie", err);
+        }
+        finally {
+            this._addBusy = false;
+        }
+    }
+    async _openMovieDetail(m) {
+        this._selectedMovie = m;
+        try {
+            const res = (await this._ws("get_movie", { movie_id: m.id }));
+            this._detailExtra = {
+                ...res.movie,
+                grabbed_history: res.grabbed_history ?? [],
+            };
+        }
+        catch {
+            this._detailExtra = undefined;
+        }
+    }
+    async _loadReleases(movieId, force = false) {
+        const cached = this._releaseCache.get(movieId);
+        const now = Date.now();
+        if (!force && cached && now - cached.at < RELEASE_CACHE_MS) {
+            this._releases = cached.releases;
+            return;
+        }
+        this._manualMovieId = movieId;
+        this._releaseBusy = true;
+        try {
+            const res = (await this._ws("release_search", { movie_id: movieId }));
+            const releases = res.releases ?? [];
+            this._releaseCache.set(movieId, { at: now, releases });
+            this._releases = releases;
+        }
+        catch (err) {
+            this._fail("movie_search", err);
+            this._releases = [];
+        }
+        finally {
+            this._releaseBusy = false;
+        }
+    }
+    render() {
+        if (this._configError) {
+            return b `
+        <ha-card data-screen="G03">
+          <p><strong>Movies card can't start</strong></p>
+          <p>${this._configError}</p>
+        </ha-card>
+      `;
+        }
+        const cfg = this.config ?? {};
+        const tabs = cfg.tabs ?? ["add", "downloading", "library"];
+        const showTabBar = tabs.length > 1;
+        const queueCount = this._state?.queue_count ?? 0;
+        const failedInQueue = this._queueRecords().some((r) => (r.status || "").toLowerCase() === "failed");
+        const sideDetail = this._layoutTablet && this._selectedMovie && this._tab === "library";
+        return b `
+      <ha-card
+        data-screen=${o$1(this._compact ? "G04" : undefined)}
+        class="${this._compact ? "compact" : ""} ${this._layoutTablet
+            ? "layout-tablet"
+            : ""} ${sideDetail ? "with-side-panel" : ""}"
+      >
+        <div class="header">
+          <div class="title-row">
+            <ha-icon icon="${cfg.icon ?? "mdi:movie-open"}"></ha-icon>
+            <span>${cfg.title ?? "Movies"}</span>
+          </div>
+          <div class="chips">${this._renderChips()}</div>
+        </div>
+
+        ${showTabBar ? this._renderTabs(tabs, queueCount, failedInQueue) : A}
+
+        ${this._offline ? this._renderOfflineBanner() : A}
+
+        <div class="${this._offline ? "offline-dim" : ""} layout-body">
+          <div class="main-pane">
+            ${this._tab === "library" ? this._renderLibrary() : A}
+            ${this._tab === "downloading" ? this._renderDownloading() : A}
+            ${this._tab === "add" ? this._renderAdd() : A}
+          </div>
+          ${sideDetail ? this._renderDetailPanel() : A}
+        </div>
+
+        ${!sideDetail && this._selectedMovie ? this._renderDetailDialog() : A}
+        ${this._manualMovieId ? this._renderManualSearch() : A}
+        ${this._grabOkScreen
+            ? b `<span hidden data-screen="M07" aria-hidden="true"></span>`
+            : A}
+
+        ${renderStatusSheet(this._statusOpen, this._state?.health ?? [], this._state?.disk_space ?? [], cfg, () => (this._statusOpen = false))}
+        ${renderFailureSheet("Failure details", this._failureDetail, () => (this._failureDetail = ""))}
+        ${renderAddSheet(this._addSheetOpen, this._layoutTablet, this._addPick, this._state?.quality_profiles ?? [], this._state?.root_folders ?? [], this._addProfileId, this._addRootPath, this._addSearchOn, this._addMonitored, this._addMinAvail, this._addBusy, this._offline, (id) => (this._addProfileId = id), (path) => (this._addRootPath = path), (v) => (this._addSearchOn = v), (v) => (this._addMonitored = v), (v) => (this._addMinAvail = v), () => {
+            this._addSheetOpen = false;
+            this._addPhase = "results";
+        }, () => void this._confirmAddMovie())}
+        ${renderQualitySheet(this._qualityOpen, this._selectedMovie?.title, this._selectedMovie?.year, this._state?.quality_profiles ?? [], this._selectedMovie?.qualityProfileId, this._qualityPendingId, this._qualitySearch, this._qualityBusy, (v) => (this._qualitySearch = v), (id) => (this._qualityPendingId = id), () => void this._saveQualityProfile(), () => (this._qualityOpen = false))}
+        ${this._queueOverflow
+            ? renderQueueOverflowSheet(true, this._queueOverflow.movie?.title ?? this._queueOverflow.title ?? "", this._queueOverflow.movie?.year, this._hideDestructive, this._offline, () => (this._queueOverflow = undefined), () => {
+                const row = this._queueOverflow;
+                this._queueOverflow = undefined;
+                if (row) {
+                    this._openConfirm("d04b", {
+                        title: row.movie?.title ?? row.title,
+                        queue_id: row.id,
+                    });
+                }
+            }, () => {
+                const row = this._queueOverflow;
+                this._queueOverflow = undefined;
+                if (row) {
+                    this._openConfirm("d04", {
+                        title: row.movie?.title ?? row.title,
+                        year: row.movie?.year,
+                        queue_id: row.id,
+                    });
+                }
+            })
+            : A}
+        ${renderConfirmDialog(this._confirm, this._confirmBusy, this._layoutTablet, () => (this._confirm = null), () => void this._runConfirm(), (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, deleteFiles: v };
+        }, (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, blockRelease: v };
+        }, (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, searchAgain: v };
+        }, (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, removeFromClient: v };
+        }, (v) => {
+            if (this._confirm)
+                this._confirm = { ...this._confirm, addImportExclusion: v };
+        })}
+        <div class="live-region" aria-live="polite"></div>
+      </ha-card>
+    `;
+    }
+    _renderTabs(tabs, queueCount, failedInQueue) {
+        return b `
+      <div class="tabs" role="tablist" aria-label="Arr card tabs">
+        ${tabs.map((t) => b `
+            <button
+              role="tab"
+              class="tab"
+              aria-selected=${this._tab === t ? "true" : "false"}
+              @click=${() => this._switchTab(t)}
+            >
+              ${t === "add"
+            ? "Add"
+            : t === "downloading"
+                ? "Downloading"
+                : "Library"}
+              ${t === "downloading" && queueCount > 0
+            ? b `
+                    <span class="badge ${failedInQueue ? "error" : "warn"}"
+                      >${queueCount}</span
+                    >
+                  `
+            : A}
+            </button>
+          `)}
+      </div>
+    `;
+    }
+    _renderOfflineBanner() {
+        const last = this._state?.last_success;
+        const screen = this._layoutTablet ? "G01T" : "G01";
+        return b `
+      <div class="banner" role="alert" data-screen=${screen}>
+        <strong>Can't reach Radarr.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
+        Actions are off until it's back. Retrying every 30 s.
+        <button class="text" @click=${() => void this._refresh()}>Retry</button>
+        <button class="text" @click=${() => (this._statusOpen = true)}>
+          Status
+        </button>
+      </div>
+    `;
+    }
+    _renderChips() {
+        const chips = this.config.show_header_chips ?? ["disk", "queue", "health"];
+        const disk = this._state?.disk_space?.[0];
+        const freeGb = disk ? (disk.freeSpace / 1e9).toFixed(1) : "—";
+        const healthBad = (this._state?.health?.length ?? 0) > 0;
+        return b `
+      ${chips.includes("disk")
+            ? b `<span class="chip health"
+            ><ha-icon icon="mdi:harddisk"></ha-icon>${freeGb} GB free</span
+          >`
+            : A}
+      ${chips.includes("queue")
+            ? b `<button
+            class="chip chip-button"
+            @click=${() => this._switchTab("downloading")}
+          >
+            <ha-icon icon="mdi:download"></ha-icon>
+            ${this._state?.queue_count
+                ? `${this._state.queue_count} active`
+                : "Nothing downloading"}
+          </button>`
+            : A}
+      ${chips.includes("health")
+            ? b `<button
+            class="chip chip-button"
+            @click=${() => (this._statusOpen = true)}
+          >
+            <ha-icon
+              icon="${this._offline
+                ? "mdi:lan-disconnect"
+                : healthBad
+                    ? "mdi:heart-broken"
+                    : "mdi:heart-pulse"}"
+            ></ha-icon>
+            ${this._offline ? "Offline" : healthBad ? "Issues" : "Healthy"}
+          </button>`
+            : A}
+    `;
+    }
+    _renderLibrary() {
+        if (this._loading) {
+            return b `<div data-screen="L04" class="skeleton-block"></div>`;
+        }
+        const cfg = this.config;
+        const movies = this._sortedLibrary();
+        const showRows = cfg.show_rows ?? [];
+        const up = showRows.includes("upcoming")
+            ? upcomingMovies(this._state?.movies ?? [], cfg.upcoming_days ?? 14)
+            : [];
+        const rec = showRows.includes("recent")
+            ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
+            : [];
+        const cols = this._gridColumns;
+        const useVirtual = movies.length > VIRTUAL_THRESHOLD;
+        const virtualRows = cols > 1 ? Math.ceil(movies.length / cols) : movies.length;
+        const letters = this._librarySort === "title" && this._layoutTablet
+            ? indexLetters(movies)
+            : [];
+        return b `
+      <div data-screen="L01">
+        <input
+          class="search-field"
+          placeholder="Search your library"
+          aria-label="Search your library"
+          .value=${this._librarySearch}
+          @input=${(e) => (this._librarySearch = e.target.value)}
+        />
+        <div class="chip-row" role="toolbar" aria-label="Library filters">
+          ${["all", "missing", "downloaded", "in_queue"].map((c) => b `
+              <button
+                class="filter-chip ${this._libraryChip === c ? "active" : ""}"
+                @click=${() => (this._libraryChip = c)}
+              >
+                ${c === "all"
+            ? "All"
+            : c === "missing"
+                ? "Missing"
+                : c === "downloaded"
+                    ? "Downloaded"
+                    : "In queue"}
+              </button>
+            `)}
+          <select
+            class="sort-select"
+            aria-label="Sort"
+            .value=${this._librarySort}
+            @change=${(e) => (this._librarySort = e.target
+            .value)}
+          >
+            <option value="title">Title</option>
+            <option value="added">Added</option>
+            <option value="year">Year</option>
+          </select>
+          <button
+            class="filter-chip"
+            aria-label="Toggle grid or list"
+            @click=${() => (this._libraryView =
+            this._libraryView === "grid" ? "list" : "grid")}
+          >
+            <ha-icon
+              icon=${this._libraryView === "grid"
+            ? "mdi:view-grid"
+            : "mdi:view-list"}
+            ></ha-icon>
+          </button>
+        </div>
+
+        ${up.length
+            ? b `
+              <section data-screen="L02" class="row-section">
+                <h3>Coming soon</h3>
+                <div class="h-scroll">
+                  ${up.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
+        ${rec.length
+            ? b `
+              <section data-screen="L03" class="row-section">
+                <h3>Recently added</h3>
+                <div class="h-scroll">
+                  ${rec.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
+
+        <div class="library-with-rail">
+          ${useVirtual
+            ? b `
+                <arr-virtual-list
+                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
+                  .itemCount=${virtualRows}
+                  .columns=${cols}
+                  .itemHeight=${this._libraryView === "list" ? 64 : 160}
+                  rowClass=${this._libraryView === "grid" ? "grid" : "list-view"}
+                  .renderItem=${(i) => this._libraryItem(movies[i])}
+                  .renderRow=${(start, count) => Array.from({ length: count }, (_, j) => this._libraryItem(movies[start + j]))}
+                ></arr-virtual-list>
+              `
+            : b `
+                <div
+                  data-screen="L05"
+                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
+                  role="list"
+                >
+                  ${movies.map((m) => this._libraryItem(m))}
+                </div>
+              `}
+          ${letters.length
+            ? b `
+                <div class="az-rail" data-screen="L01T" aria-hidden="true">
+                  ${letters.map((L) => b `
+                      <span class="az-letter">${L}</span>
+                    `)}
+                </div>
+              `
+            : A}
+        </div>
+        ${!movies.length
+            ? b `<p>No movies match your filters.</p>`
+            : A}
+      </div>
+    `;
+    }
+    _libraryTile(m) {
+        return b `
+      <button
+        class="poster-btn small"
+        @click=${() => void this._openMovieDetail(m)}
+      >
+        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <span>${m.title}</span>
+      </button>
+    `;
+    }
+    _libraryItem(m) {
+        if (this._libraryView === "list") {
+            return b `
+        <button
+          class="list-row"
+          role="listitem"
+          @click=${() => void this._openMovieDetail(m)}
+        >
+          <img class="thumb" src=${m.posterUrl ?? ""} alt="" />
+          <span>${m.title} (${m.year})</span>
+          ${m.hasFile
+                ? b `<span class="pill ok">On disk</span>`
+                : b `<span class="pill">Missing</span>`}
+        </button>
+      `;
+        }
+        return b `
+      <button
+        class="poster-btn"
+        role="listitem"
+        aria-label=${m.title ?? "Movie"}
+        @click=${() => void this._openMovieDetail(m)}
+      >
+        <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
+        <div>${m.title} (${m.year})</div>
+      </button>
+    `;
+    }
+    _renderDownloading() {
+        if (this._loading && !this._state?.queue) {
+            return b `<div data-screen="D05" class="skeleton-list" aria-busy="true"></div>`;
+        }
+        const rows = this._queueRecords();
+        if (!rows.length) {
+            return b `
+        <div data-screen="D02">
+          <p>
+            <ha-icon icon="mdi:check-circle"></ha-icon> Nothing downloading
+          </p>
+          <p class="hint-muted">
+            New downloads show up here with progress and time left.
+          </p>
+        </div>
+      `;
+        }
+        const limit = this._compact && !this._showAllDownloads ? 3 : rows.length;
+        const visible = rows.slice(0, limit);
+        const listScreen = this._layoutTablet ? "D01T" : "D01";
+        return b `
+      <div data-screen=${listScreen} role="list">
+        ${visible.map((row) => this._renderQueueRow(row))}
+      </div>
+      ${this._compact && rows.length > 3 && !this._showAllDownloads
+            ? b `
+            <button
+              class="text"
+              data-screen="G04"
+              @click=${() => (this._showAllDownloads = true)}
+            >
+              Show all ${rows.length} downloads
+            </button>
+          `
+            : A}
+    `;
+    }
+    _renderQueueRow(row) {
+        const title = row.movie?.title ?? row.title ?? "Download";
+        const failed = (row.status || "").toLowerCase() === "failed";
+        const importAttn = (row.trackedDownloadStatus || "")
+            .toLowerCase()
+            .includes("import");
+        const hide = this._hideDestructive;
+        const pct = queueProgress(row);
+        const exiting = this._exitingQueueIds.includes(row.id);
+        return b `
+      <div
+        class="queue-row ${failed ? "attention" : importAttn ? "attention warn" : ""} ${exiting ? "exiting" : ""}"
+        role="listitem"
+        data-screen=${exiting ? "D06" : A}
+      >
+        <div class="queue-main">
+          <strong>${title}</strong>
+          <span class="pill ${failed ? "failed" : ""}"
+            >${queueStatusLabel(row)}</span
+          >
+          <div
+            class="progress-bar"
+            role="progressbar"
+            aria-label="${title} progress"
+            aria-valuenow=${pct}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div class="progress-fill" style="width: ${pct}%"></div>
+          </div>
+          <div class="queue-meta mono">
+            ${row.quality?.quality?.name ?? ""}
+            ${row.size ? ` · ${formatBytes(row.size)}` : ""}
+            ${row.timeleft ? ` · ${row.timeleft}` : ""}
+          </div>
+          <div class="queue-actions">
+            ${!hide
+            ? b `
+                  ${failed || row.trackedDownloadStatus === "warning"
+                ? b `<button
+                        class="outline-danger"
+                        data-action="remove-search-again"
+                        data-qid=${row.id}
+                        ?disabled=${this._offline}
+                        @click=${() => void this._removeSearchAgain(row.id, title)}
+                      >
+                        Remove & search again
+                      </button>`
+                : A}
+                  ${failed
+                ? b `<button
+                        class="outline-danger"
+                        data-action="queue-remove"
+                        data-qid=${row.id}
+                        ?disabled=${this._offline}
+                        @click=${() => this._openConfirm("d04b", {
+                    title,
+                    queue_id: row.id,
+                })}
+                      >
+                        Remove
+                      </button>`
+                : A}
+                `
+            : b `
+                  ${queueNeedsAttention(row)
+                ? b `<p class="hint-muted" data-screen="D07T">
+                        <ha-icon icon="mdi:information-outline"></ha-icon>
+                        Removing is turned off on this dashboard.
+                      </p>`
+                : A}
+                `}
+            ${importAttn && row.outputPath
+            ? b `<button
+                  class="primary"
+                  data-action="retry-import"
+                  ?disabled=${this._offline}
+                  @click=${() => void this._retryImport(row)}
+                >
+                  Retry import
+                </button>`
+            : A}
+          </div>
+        </div>
+        ${!hide
+            ? b `<button
+              aria-label="More actions for ${title}"
+              class="text overflow-btn"
+              data-screen="D03"
+              @click=${() => (this._queueOverflow = row)}
+            >
+              ⋮
+            </button>`
+            : A}
+      </div>
+    `;
+    }
+    _renderAdd() {
+        const screen = this._addPhase === "added"
+            ? "A05"
+            : this._addPhase === "searching"
+                ? "A02"
+                : this._addPhase === "results"
+                    ? this._layoutTablet
+                        ? "A03T"
+                        : "A03"
+                    : this._addPhase === "no_results"
+                        ? "A06"
+                        : this._addPhase === "error"
+                            ? "A07"
+                            : "A01";
+        const movies = this._state?.movies ?? [];
+        const comingSoon = this._lookupResults.filter((r) => {
+            const st = String(r.status ?? r.statusType ?? "").toLowerCase();
+            return st.includes("cinemas") || st.includes("announced");
+        });
+        const libraryUpcoming = this._addPhase === "start" && !this._addQuery.trim()
+            ? upcomingMovies(movies, this.config.upcoming_days ?? 30)
+            : [];
+        return b `
+      <svg width="0" height="0" aria-hidden="true"></svg>
+      <div data-screen=${screen}>
+        <input
+          class="search-field"
+          placeholder="Search for a movie to add"
+          aria-label="Search for a movie to add"
+          ?disabled=${this._offline}
+          .value=${this._addQuery}
+          @input=${(e) => {
+            this._addQuery = e.target.value;
+            this._scheduleLookup();
+        }}
+        />
+        ${libraryUpcoming.length
+            ? b `
+              <section data-screen="A01" class="row-section">
+                <h3>Coming soon in your library</h3>
+                <div class="h-scroll">
+                  ${libraryUpcoming.map((m) => this._libraryTile(m))}
+                </div>
+              </section>
+            `
+            : A}
+        ${this._addPhase === "searching"
+            ? b `<div class="skeleton-list" aria-busy="true"></div>`
+            : A}
+        ${this._addPhase === "no_results"
+            ? b `
+              <p>No movies found for “${this._addQuery}”</p>
+              <p class="hint-muted">
+                Check the spelling, or try the original title or the year.
+              </p>
+            `
+            : A}
+        ${this._addPhase === "error"
+            ? b `
+              <p><strong>Search didn't work</strong></p>
+              <p class="error-text">${this._addError}</p>
+              <button class="primary" @click=${() => this._scheduleLookup(true)}>
+                Try again
+              </button>
+            `
+            : A}
+        <div role="list">
+          ${this._lookupResults.map((r) => {
+            const lib = inLibrary(movies, r);
+            return b `
+              <div class="lookup-row" role="listitem">
+                <strong>${r.title} (${r.year})</strong>
+                ${lib
+                ? b `
+                      <button
+                        class="primary"
+                        @click=${() => void this._openMovieDetail(lib)}
+                      >
+                        Open
+                      </button>
+                      <span class="pill ok">In library</span>
+                    `
+                : b `
+                      <button
+                        class="primary"
+                        data-action="add-movie"
+                        ?disabled=${this._offline}
+                        @click=${() => this._openAddSheet(r)}
+                      >
+                        Add movie
+                      </button>
+                    `}
+              </div>
+            `;
+        })}
+        </div>
+        ${comingSoon.length && this._addPhase === "results"
+            ? b `
+              <section data-screen="A07">
+                <h3>Coming soon in results</h3>
+                ${comingSoon.map((r) => b `<p>${r.title} (${r.year})</p>`)}
+              </section>
+            `
+            : A}
+      </div>
+    `;
+    }
+    _detailBody(m, sidePanel = false) {
+        const extra = this._detailExtra;
+        const hide = this._hideDestructive;
+        const size = m.sizeOnDisk;
+        const screen = hide && this._layoutTablet
+            ? "M12T"
+            : sidePanel
+                ? "M01T"
+                : m.hasFile
+                    ? "M01"
+                    : "M02";
+        return b `
+      <div data-screen=${screen}>
+      <button
+        class="text"
+        @click=${() => {
+            this._selectedMovie = undefined;
+            this._detailExtra = undefined;
+        }}
+      >
+        ← Back
+      </button>
+      <h2>${m.title} (${m.year})</h2>
+      <img
+        class="detail-poster"
+        src=${m.posterUrl ?? ""}
+        alt=""
+        loading="lazy"
+      />
+      <dl class="detail-dl">
+        <dt>Quality</dt>
+        <dd>${m.quality ?? "—"}</dd>
+        <dt>Size</dt>
+        <dd class="mono">${size ? formatBytes(size) : "—"}</dd>
+        <dt>Status</dt>
+        <dd>${m.status ?? "—"}</dd>
+        <dt>Runtime</dt>
+        <dd>${m.runtime ?? extra?.runtime ?? "—"} min</dd>
+        <dt>Certification</dt>
+        <dd>${m.certification ?? extra?.certification ?? "—"}</dd>
+      </dl>
+      <p class="overview">${m.overview ?? extra?.overview ?? ""}</p>
+      <label>
+        <input
+          type="checkbox"
+          role="switch"
+          .checked=${m.monitored ?? true}
+          ?disabled=${this._offline}
+          @change=${(e) => void this._setMonitored(m.id, e.target.checked, m.title)}
+        />
+        Monitored
+      </label>
+      <div class="detail-actions">
+        <button
+          class="primary"
+          ?disabled=${this._offline}
+          @click=${() => void this._movieSearch(m)}
+        >
+          Search again
+        </button>
+        <button
+          class="primary"
+          data-screen="M04"
+          ?disabled=${this._offline}
+          @click=${() => void this._openManualSearch(m)}
+        >
+          Manual search
+        </button>
+        <button
+          class="text"
+          data-screen="M08"
+          ?disabled=${this._offline}
+          @click=${() => {
+            this._qualityPendingId =
+                this._selectedMovie?.qualityProfileId ??
+                    this._state?.quality_profiles?.[0]?.id;
+            this._qualityOpen = true;
+        }}
+        >
+          Change quality profile
+        </button>
+      </div>
+      ${!hide
+            ? b `
+            <section>
+              <h3>Fix or remove</h3>
+              ${m.hasFile
+                ? b `<button
+                    class="outline-danger"
+                    data-action="delete-redownload"
+                    ?disabled=${this._offline}
+                    @click=${() => this._openConfirm("m09", {
+                    title: m.title,
+                    year: m.year,
+                    quality: m.quality,
+                    size: m.sizeOnDisk,
+                    movie_id: m.id,
+                    showBlockCheckbox: Boolean(this._detailExtra?.grabbed_history?.length),
+                })}
+                  >
+                    Delete file & redownload
+                  </button>`
+                : A}
+              <button
+                class="outline-danger"
+                data-action="remove-movie"
+                ?disabled=${this._offline}
+                @click=${() => this._openConfirm("m10", {
+                title: m.title,
+                movie_id: m.id,
+                size: m.sizeOnDisk,
+            })}
+              >
+                Remove movie
+              </button>
+            </section>
+          `
+            : A}
+      </div>
+    `;
+    }
+    _renderDetailPanel() {
+        const m = this._selectedMovie;
+        if (!m)
+            return A;
+        return b `
+      <aside class="side-panel">${this._detailBody(m, true)}</aside>
+    `;
+    }
+    _renderDetailDialog() {
+        const m = this._selectedMovie;
+        if (!m)
+            return A;
+        const dialogScreen = this._searchAgainBusy
+            ? "M03"
+            : m.hasFile
+                ? "M01"
+                : "M02";
+        return b `
+      <dialog open class="detail-dialog" data-screen=${dialogScreen}>
+        ${this._detailBody(m, false)}
+      </dialog>
+    `;
+    }
+    _renderManualSearch() {
+        const all = this._releases;
+        const rejectedCount = all.filter((r) => r.approved === false).length;
+        const approvedCount = all.filter((r) => r.approved !== false).length;
+        const filtered = all.filter((r) => this._showRejected ? true : r.approved !== false);
+        const sorted = sortReleases(filtered, this._releaseSort);
+        const bestGuid = sorted.find((r) => r.approved !== false)?.guid;
+        const screen = this._releaseBusy
+            ? "M04"
+            : !sorted.length
+                ? "M11"
+                : this._layoutTablet
+                    ? "M05T"
+                    : "M05";
+        return b `
+      <dialog open class="release-dialog" data-screen=${screen}>
+        <button class="text" @click=${() => (this._manualMovieId = undefined)}>
+          ← Back
+        </button>
+        <h2>Manual search</h2>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${this._showRejected}
+            @change=${(e) => (this._showRejected = e.target.checked)}
+          />
+          Show rejected releases
+        </label>
+        ${this._releaseBusy
+            ? b `
+              <p>Searching indexers…</p>
+              <p class="hint-muted">
+                This can take up to a minute. You can close this and come back.
+              </p>
+              <div class="skeleton-list" aria-busy="true"></div>
+            `
+            : !sorted.length
+                ? b `
+                <p>No releases found</p>
+                <p class="hint-muted">
+                  None of your indexers have this movie right now. Radarr keeps
+                  checking while it's monitored.
+                </p>
+              `
+                : b `
+                <div class="release-header">
+                  <span
+                    >${approvedCount} releases · ${rejectedCount} rejected</span
+                  >
+                  <select
+                    aria-label="Sort releases"
+                    .value=${this._releaseSort}
+                    @change=${(e) => (this._releaseSort = e.target
+                    .value)}
+                  >
+                    <option value="match">Best match</option>
+                    <option value="size">Size</option>
+                    <option value="age">Age</option>
+                    <option value="seeders">Seeders</option>
+                  </select>
+                </div>
+                <div role="list">
+                  ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
+                </div>
+              `}
+      </dialog>
+    `;
+    }
+    _releaseRow(r, bestMatch) {
+        const rejected = r.approved === false;
+        const reasons = (r.rejections ?? []).join(" · ");
+        const peers = r.protocol === "usenet" || r.seeders == null
+            ? "Usenet"
+            : `${r.seeders} seeders`;
+        return b `
+      <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
+        <div>
+          <strong class="mono">${r.title ?? r.indexer ?? "Release"}</strong>
+          <div class="release-header">
+            <span class="release-chip">${releaseQualityName(r)}</span>
+            <span class="mono"
+              >${formatBytes(r.size)} · ${r.age ?? "?"}d · ${peers}</span
+            >
+            <span>${r.indexer ?? "—"}</span>
+            <span class="release-chip"
+              >Score ${r.customFormatScore ?? 0}</span
+            >
+            ${bestMatch && !rejected
+            ? b `<span class="best-match-pill">Best match</span>`
+            : A}
+          </div>
+          ${rejected
+            ? b `<p class="hint-muted">
+                <ha-icon icon="mdi:alert-outline"></ha-icon> Rejected:
+                ${reasons}
+              </p>`
+            : A}
+        </div>
+        ${rejected && this._hideDestructive
+            ? A
+            : b `<button
+              class="${rejected ? "text" : "primary"}"
+              ?disabled=${this._offline || this._releaseBusy}
+              @click=${() => this._grabRelease(r, rejected, reasons)}
+            >
+              ${rejected ? "Grab anyway" : "Grab"}
+            </button>`}
+      </div>
+    `;
+    }
+    _grabRelease(release, rejected, reasons) {
+        if (rejected) {
+            this._openConfirm("m06", {
+                title: release.title,
+                releaseName: release.title,
+                reasons,
+                size: release.size,
+                release,
+            });
+            return;
+        }
+        void this._doGrab(release);
+    }
+    async _doGrab(release) {
+        this._releaseBusy = true;
+        try {
+            await this._ws("grab_release", { release });
+            showToast(this, toastGrab());
+            this._grabOkScreen = true;
+            window.setTimeout(() => (this._grabOkScreen = false), 4000);
+            this._manualMovieId = undefined;
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("grab_release", err);
+        }
+        finally {
+            this._releaseBusy = false;
+        }
+    }
+    _fail(command, err) {
+        this._failureDetail =
+            err instanceof Error ? err.message : String(err);
+        showActionFailure(this, command, err);
+    }
+    _openConfirm(kind, payload) {
+        this._confirm = {
+            kind,
+            payload,
+            deleteFiles: false,
+            blockRelease: true,
+            searchAgain: true,
+            removeFromClient: true,
+            addImportExclusion: false,
+        };
+    }
+    async _runConfirm() {
+        if (!this._confirm)
+            return;
+        this._confirmBusy = true;
+        const { kind, payload } = this._confirm;
+        try {
+            switch (kind) {
+                case "m10":
+                    await this._ws("remove_movie", {
+                        movie_id: payload.movie_id,
+                        delete_files: this._confirm.deleteFiles ?? false,
+                        add_import_exclusion: this._confirm.addImportExclusion ?? false,
+                    });
+                    showToast(this, toastRemoveMovie(String(payload.title), Boolean(this._confirm.deleteFiles)));
+                    this._selectedMovie = undefined;
+                    break;
+                case "m09":
+                    await this._ws("delete_file_redownload", {
+                        movie_id: payload.movie_id,
+                        block_release: this._confirm.blockRelease ?? false,
+                    });
+                    showToast(this, toastDeleteRedownload(String(payload.title)));
+                    break;
+                case "d04":
+                    await this._ws("queue_remove_blocklist", {
+                        queue_id: payload.queue_id,
+                        search_again: this._confirm.searchAgain ?? true,
+                        remove_from_client: this._confirm.removeFromClient ?? true,
+                    });
+                    showToast(this, toastRemoveBlocklist(String(payload.title), Boolean(this._confirm.searchAgain)));
+                    await this._animateQueueExit(Number(payload.queue_id));
+                    break;
+                case "d04b":
+                    await this._ws("queue_remove", {
+                        queue_id: payload.queue_id,
+                        remove_from_client: this._confirm.removeFromClient ?? true,
+                    });
+                    showToast(this, toastRemoveQueue(String(payload.title)));
+                    await this._animateQueueExit(Number(payload.queue_id));
+                    break;
+                case "m06": {
+                    const rel = payload.release;
+                    await this._ws("grab_release", { release: rel });
+                    showToast(this, toastGrab());
+                    this._manualMovieId = undefined;
+                    break;
+                }
+                default:
+                    break;
+            }
+            if (kind !== "d04" && kind !== "d04b") {
+                await this._refresh();
+            }
+        }
+        catch (err) {
+            const cmd = kind === "m10"
+                ? "remove_movie"
+                : kind === "m09"
+                    ? "delete_file_redownload"
+                    : kind === "m06"
+                        ? "grab_release"
+                        : "queue_remove";
+            this._fail(cmd, err);
+        }
+        finally {
+            this._confirmBusy = false;
+            this._confirm = null;
+        }
+    }
+    async _removeSearchAgain(queueId, title) {
+        try {
+            await this._ws("queue_remove_search_again", { queue_id: queueId });
+            showToast(this, toastRemoveSearchAgain(title));
+            await this._animateQueueExit(queueId);
+        }
+        catch (err) {
+            this._fail("queue_remove", err);
+        }
+    }
+    async _animateQueueExit(queueId) {
+        await animateQueueRowExit(() => {
+            if (!this._exitingQueueIds.includes(queueId)) {
+                this._exitingQueueIds = [...this._exitingQueueIds, queueId];
+            }
+        });
+        await this._refresh();
+        this._exitingQueueIds = this._exitingQueueIds.filter((id) => id !== queueId);
+    }
+    async _retryImport(row) {
+        try {
+            await this._ws("retry_import", {
+                output_path: row.outputPath,
+                download_client_id: row.downloadId,
+            });
+            showToast(this, toastRetryImport(row.movie?.title ?? "movie"));
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("retry_import", err);
+        }
+    }
+    async _setMonitored(movieId, monitored, title) {
+        try {
+            await this._ws("set_monitored", { movie_id: movieId, monitored });
+            showToast(this, monitored
+                ? toastMonitorOn(title ?? "Movie")
+                : toastMonitorOff(title ?? "Movie"));
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("set_monitored", err);
+        }
+    }
+    async _movieSearch(m) {
+        this._searchAgainBusy = true;
+        try {
+            await this._ws("movie_search", { movie_id: m.id });
+            showToast(this, toastSearchAgain(m.title));
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("not_found") || msg.includes("gone")) {
+                showToast(this, toastGone());
+                this._selectedMovie = undefined;
+            }
+            else {
+                this._fail("movie_search", err);
+            }
+        }
+        finally {
+            this._searchAgainBusy = false;
+        }
+    }
+    async _openManualSearch(m) {
+        await this._loadReleases(m.id);
+    }
+    async _saveQualityProfile() {
+        const profileId = this._qualityPendingId;
+        const m = this._selectedMovie;
+        if (!m || profileId == null)
+            return;
+        const profiles = this._state?.quality_profiles ?? [];
+        const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
+        this._qualityBusy = true;
+        try {
+            await this._ws("set_quality_profile", {
+                movie_id: m.id,
+                quality_profile_id: profileId,
+                search: this._qualitySearch,
+            });
+            showToast(this, toastProfile(name, this._qualitySearch));
+            this._qualityOpen = false;
+            await this._refresh();
+        }
+        catch (err) {
+            this._fail("set_quality_profile", err);
+        }
+        finally {
+            this._qualityBusy = false;
+        }
+    }
+    getCardSize() {
+        return this._compact ? 4 : 8;
+    }
+};
+ArrDashboardCard.styles = cardStyles;
+__decorate([
+    n({ attribute: false })
+], ArrDashboardCard.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrDashboardCard.prototype, "config", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_entryId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_state", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_tab", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_configError", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_loading", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_confirm", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_confirmBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addQuery", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addPhase", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_lookupResults", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addError", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addPick", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addSheetOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addProfileId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addRootPath", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addSearchOn", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addMonitored", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addMinAvail", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_selectedMovie", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_detailExtra", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryChip", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_librarySearch", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_librarySort", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_libraryView", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_compact", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_statusOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_failureDetail", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityOpen", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualitySearch", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_queueOverflow", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_showAllDownloads", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_manualMovieId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releases", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_showRejected", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releaseBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_releaseSort", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_exitingQueueIds", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityPendingId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_qualityBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_searchAgainBusy", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_grabOkScreen", void 0);
+ArrDashboardCard = __decorate([
+    t("arr-card")
+], ArrDashboardCard);
+customElements.define("arr-dashboard-card", class extends ArrDashboardCard {
+});
+window.customCards =
+    window.customCards ?? [];
+window.customCards.push({
+    type: "custom:arr-card",
+    name: "Arr Dashboard",
+    description: "Radarr library, queue, and add card",
+    preview: true,
+    documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
+});
+function getConfigElement() {
+    return document.createElement("arr-card-editor");
+}
+function getStubConfig(hass) {
+    return { type: "custom:arr-card", instance: "" };
+}
+
+export { ArrDashboardCard, getConfigElement, getStubConfig };
