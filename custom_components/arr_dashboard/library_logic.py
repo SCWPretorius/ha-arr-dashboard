@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 LibrarySort = str  # "title" | "added" | "year"
 
 
 def library_revision(coordinator_data: Any) -> str:
-    """Stable revision string when coordinator library data changes."""
-    last = (
-        coordinator_data.last_success.isoformat()
-        if coordinator_data.last_success
-        else ""
-    )
-    count = len(coordinator_data.movies or [])
-    return f"{last}:{count}"
+    """Stable revision string when on-disk library content changes."""
+    movies = coordinator_data.movies or []
+    parts: list[str] = []
+    for m in sorted(movies, key=lambda x: x.get("id") or 0):
+        parts.append(
+            f"{m.get('id')}:{int(bool(m.get('hasFile')))}:{m.get('added') or ''}"
+        )
+    digest = hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
+    return f"{digest}:{len(movies)}"
 
 
 def filter_library_downloaded(

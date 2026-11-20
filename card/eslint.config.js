@@ -13,6 +13,9 @@ export default [
         customElements: "readonly",
         HTMLElement: "readonly",
         CustomElementConstructor: "readonly",
+        DOMException: "readonly",
+        IntersectionObserver: "readonly",
+        IntersectionObserverEntry: "readonly",
         HTMLInputElement: "readonly",
         HTMLSelectElement: "readonly",
         Event: "readonly",
@@ -36,6 +39,15 @@ export default [
         "error",
         { argsIgnorePattern: "^_" },
       ],
+    },
+  },
+  {
+    files: ["src/**/*.test.ts"],
+    languageOptions: {
+      globals: {
+        IntersectionObserverCallback: "readonly",
+        IntersectionObserverInit: "readonly",
+      },
     },
   },
 ];

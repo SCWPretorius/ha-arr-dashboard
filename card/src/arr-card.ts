@@ -130,6 +130,7 @@ export class ArrDashboardCard extends LitElement {
   private _refreshTimer?: ReturnType<typeof setInterval>;
   private _lookupTimer?: ReturnType<typeof setTimeout>;
   private _librarySearchTimer?: ReturnType<typeof setTimeout>;
+  private _librarySentinelIo?: IntersectionObserver;
   private _libraryLoadGen = 0;
   private _failCount = 0;
   private _releaseCache = new Map<
@@ -197,6 +198,7 @@ export class ArrDashboardCard extends LitElement {
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     if (this._lookupTimer) clearTimeout(this._lookupTimer);
     if (this._librarySearchTimer) clearTimeout(this._librarySearchTimer);
+    this._teardownLibrarySentinel();
     if (this._onVisibility) {
       document.removeEventListener("visibilitychange", this._onVisibility);
     }
@@ -209,6 +211,16 @@ export class ArrDashboardCard extends LitElement {
       (this._selectedMovie || this._manualMovieId)
     ) {
       this._closeMovieDetail();
+    }
+    if (
+      this._tab === "library" &&
+      (changed.has("_libraryItems") ||
+        changed.has("_libraryTotal") ||
+        changed.has("_tab"))
+    ) {
+      void this.updateComplete.then(() => this._setupLibrarySentinel());
+    } else if (changed.has("_tab") && this._tab !== "library") {
+      this._teardownLibrarySentinel();
     }
   }
 
@@ -446,6 +458,34 @@ export class ArrDashboardCard extends LitElement {
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) {
       void this._loadMoreLibrary();
     }
+  }
+
+  private _teardownLibrarySentinel(): void {
+    this._librarySentinelIo?.disconnect();
+    this._librarySentinelIo = undefined;
+  }
+
+  /** Load more when the list grows with the card (masonry / sections views). */
+  private _setupLibrarySentinel(): void {
+    this._teardownLibrarySentinel();
+    if (this._tab !== "library" || this._libraryItems.length >= this._libraryTotal) {
+      return;
+    }
+    const sentinel = this.renderRoot.querySelector(
+      "[data-library-sentinel]",
+    ) as HTMLElement | null;
+    if (!sentinel || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    this._librarySentinelIo = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void this._loadMoreLibrary();
+        }
+      },
+      { root: null, rootMargin: "320px" },
+    );
+    this._librarySentinelIo.observe(sentinel);
   }
 
   private _libraryRowRender = (startIndex: number, count: number) => {
@@ -956,6 +996,9 @@ export class ArrDashboardCard extends LitElement {
                 ></arr-virtual-list>
               `
             : html`<p>No movies match your filters.</p>`}
+          ${this._libraryItems.length < this._libraryTotal
+            ? html`<div data-library-sentinel class="library-load-sentinel"></div>`
+            : nothing}
           ${this._libraryLoadingMore
             ? html`<p class="hint-muted">Loading more…</p>`
             : nothing}

@@ -640,6 +640,13 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
+  .library-load-sentinel {
+    width: 100%;
+    height: 1px;
+    flex: 0 0 auto;
+    pointer-events: none;
+  }
+
   .library-scroll arr-virtual-list.library-virtual {
     display: block;
     width: 100%;

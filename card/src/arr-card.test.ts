@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "./arr-card";
 import type { ArrDashboardCard } from "./arr-card";
 
@@ -299,6 +299,67 @@ describe("arr-card library grid", () => {
     expect(el.shadowRoot?.querySelector(".chip-row .filter-chip")).to.equal(
       null,
     );
+  });
+
+  it("loads more library pages when the viewport sentinel intersects", async () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    let callback: IntersectionObserverCallback = () => {};
+    const MockIo = vi.fn(
+      (cb: IntersectionObserverCallback, _opts?: IntersectionObserverInit) => {
+        callback = cb;
+        return { observe, disconnect, unobserve: vi.fn(), takeRecords: vi.fn() };
+      },
+    );
+    vi.stubGlobal("IntersectionObserver", MockIo);
+
+    const pageCalls: number[] = [];
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = {
+      callWS: async (msg: Record<string, unknown>) => {
+        if (msg.type === "config_entries/get") {
+          return [{ entry_id: "abc", domain: "arr_dashboard", title: "Radarr" }];
+        }
+        if (msg.type === "arr_dashboard" && msg.command === "library_page") {
+          pageCalls.push(Number((msg.data as { offset?: number }).offset ?? 0));
+          return mockArrDashboard(
+            String(msg.command),
+            (msg.data as Record<string, unknown>) ?? {},
+            200,
+            true,
+          );
+        }
+        if (msg.type === "arr_dashboard") {
+          return mockArrDashboard(
+            String(msg.command),
+            (msg.data as Record<string, unknown>) ?? {},
+            200,
+            true,
+          );
+        }
+        return {};
+      },
+    } as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["library"],
+      default_tab: "library",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 120));
+    await el.updateComplete;
+    expect(MockIo).toHaveBeenCalled();
+    expect(observe).toHaveBeenCalled();
+    const internal = el as unknown as { _libraryItems: unknown[]; _libraryTotal: number };
+    expect(internal._libraryTotal).to.equal(200);
+    const before = internal._libraryItems.length;
+    callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    expect(internal._libraryItems.length).to.be.greaterThan(before);
+    expect(pageCalls).to.include(before);
+    vi.unstubAllGlobals();
   });
 
   it("lazy-loads library pages instead of mounting every movie", async () => {
