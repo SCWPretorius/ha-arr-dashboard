@@ -125,7 +125,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
           ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
           searches for a new copy.
         </p>
-        <p>You can't watch it until the new download finishes.</p>
+        <p>You can’t watch it until the new download finishes.</p>
       `;
             actionLabel = "Delete file & redownload";
             if (p.showBlockCheckbox) {
@@ -136,7 +136,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
               .checked=${confirm.blockRelease ?? true}
               @change=${(e) => setBlockRelease(e.target.checked)}
             />
-            Block this release so it isn't downloaded again.
+            Block this release so it isn’t downloaded again.
           </label>
           <p class="hint-muted">Recommended if the file was bad.</p>
         `;
@@ -170,7 +170,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
             .checked=${confirm.addImportExclusion ?? false}
             @change=${(e) => setAddImportExclusion(e.target.checked)}
           />
-          Don't add it again from lists
+          Don’t add it again from lists
         </label>
       `;
             break;
@@ -179,7 +179,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
             body = b `
         <p>
           <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
-          the download client and this release is blocked so it isn't grabbed
+          the download client and this release is blocked so it isn’t grabbed
           again.
         </p>
       `;
@@ -908,6 +908,12 @@ const cardStyles = i$3 `
     margin-top: 8px;
   }
 
+  .arr-virtual-host {
+    display: block;
+    overflow: auto;
+    max-height: var(--arr-virtual-height, 520px);
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
@@ -1351,16 +1357,30 @@ function showActionFailure(el, command, err) {
     showToast(el, `Couldn't ${verb}. Radarr said: ${message}`, "Details");
 }
 
+/**
+ * Virtual scroller that renders into light DOM so parent card styles apply.
+ */
 let ArrVirtualList = class ArrVirtualList extends i {
     constructor() {
         super(...arguments);
         this.itemHeight = 72;
         this.itemCount = 0;
+        this.columns = 1;
+        this.rowClass = "";
         this._scrollTop = 0;
         this._height = 400;
     }
+    createRenderRoot() {
+        return this;
+    }
+    _rowCount() {
+        if (this.columns <= 1)
+            return this.itemCount;
+        return Math.ceil(this.itemCount / this.columns);
+    }
     connectedCallback() {
         super.connectedCallback();
+        this.classList.add("arr-virtual-host");
         this._onScrollBound = this._onScroll.bind(this);
         this.addEventListener("scroll", this._onScrollBound);
         this._ro = new ResizeObserver(() => {
@@ -1379,50 +1399,38 @@ let ArrVirtualList = class ArrVirtualList extends i {
         this._scrollTop = this.scrollTop;
     }
     render() {
+        const rows = this._rowCount();
         const buffer = this.itemHeight * 4;
-        const total = this.itemCount * this.itemHeight;
-        const start = Math.max(0, Math.floor((this._scrollTop - buffer) / this.itemHeight));
-        const visible = Math.ceil((this._height + buffer * 2) / this.itemHeight);
-        const end = Math.min(this.itemCount, start + visible);
-        const items = [];
-        for (let i = start; i < end; i++) {
-            items.push(this.renderItem(i));
+        const total = rows * this.itemHeight;
+        const startRow = Math.max(0, Math.floor((this._scrollTop - buffer) / this.itemHeight));
+        const visibleRows = Math.ceil((this._height + buffer * 2) / this.itemHeight);
+        const endRow = Math.min(rows, startRow + visibleRows);
+        const rowNodes = [];
+        for (let row = startRow; row < endRow; row++) {
+            const startIndex = row * this.columns;
+            if (this.columns <= 1) {
+                rowNodes.push(this.renderItem(startIndex));
+            }
+            else if (this.renderRow) {
+                const count = Math.min(this.columns, this.itemCount - startIndex);
+                rowNodes.push(b `<div class=${this.rowClass} role="presentation">
+            ${this.renderRow(startIndex, count)}
+          </div>`);
+            }
         }
         return b `
-      <div class="viewport">
-        <div class="spacer" style="height: ${total}px"></div>
+      <div class="viewport" style="position:relative;width:100%">
+        <div class="spacer" style="height:${total}px;width:100%"></div>
         <div
           class="window"
-          style="transform: translateY(${start * this.itemHeight}px)"
+          style="position:absolute;left:0;right:0;top:0;transform:translateY(${startRow * this.itemHeight}px)"
         >
-          ${items}
+          ${rowNodes}
         </div>
       </div>
     `;
     }
 };
-ArrVirtualList.styles = i$3 `
-    :host {
-      display: block;
-      position: relative;
-      overflow: auto;
-      max-height: var(--arr-virtual-height, 480px);
-    }
-    .viewport {
-      position: relative;
-      width: 100%;
-    }
-    .spacer {
-      width: 100%;
-      pointer-events: none;
-    }
-    .window {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-    }
-  `;
 __decorate([
     n({ type: Number })
 ], ArrVirtualList.prototype, "itemHeight", void 0);
@@ -1430,8 +1438,17 @@ __decorate([
     n({ type: Number })
 ], ArrVirtualList.prototype, "itemCount", void 0);
 __decorate([
+    n({ type: Number })
+], ArrVirtualList.prototype, "columns", void 0);
+__decorate([
+    n({ type: String })
+], ArrVirtualList.prototype, "rowClass", void 0);
+__decorate([
     n({ attribute: false })
 ], ArrVirtualList.prototype, "renderItem", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrVirtualList.prototype, "renderRow", void 0);
 __decorate([
     r()
 ], ArrVirtualList.prototype, "_scrollTop", void 0);
@@ -1442,6 +1459,22 @@ ArrVirtualList = __decorate([
     t("arr-virtual-list")
 ], ArrVirtualList);
 
+const posterSignCache = new Map();
+async function signPosterPath(hass, path) {
+    if (!path.startsWith("/api/arr_dashboard")) {
+        return path;
+    }
+    const cached = posterSignCache.get(path);
+    if (cached)
+        return cached;
+    const res = (await hass.callWS({
+        type: "auth/sign_path",
+        path,
+        expires: 60 * 60,
+    }));
+    posterSignCache.set(path, res.path);
+    return res.path;
+}
 async function callArr(hass, entryId, command, data) {
     return hass.callWS({
         type: "arr_dashboard",
@@ -1452,7 +1485,8 @@ async function callArr(hass, entryId, command, data) {
 }
 async function resolveEntryId(hass, instance) {
     const entries = (await hass.callWS({
-        type: "config_entries/list",
+        type: "config_entries/get",
+        domain: "arr_dashboard",
     }));
     const arr = entries.filter((e) => e.domain === "arr_dashboard");
     if (!arr.length)
@@ -1460,7 +1494,9 @@ async function resolveEntryId(hass, instance) {
     if (!instance)
         return arr[0].entry_id;
     const match = arr.find((e) => e.entry_id === instance || e.title === instance);
-    return match?.entry_id ?? arr[0].entry_id;
+    if (!match)
+        return undefined;
+    return match.entry_id;
 }
 
 let ArrCardEditor = class ArrCardEditor extends i {
@@ -1810,6 +1846,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._grabOkScreen = false;
         this._failCount = 0;
         this._releaseCache = new Map();
+        this._lastFullRefresh = 0;
+        this._pageVisible = true;
+        this._fullRefreshMs = 5 * 60 * 1000;
     }
     setConfig(config) {
         if (!config.type) {
@@ -1857,6 +1896,12 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     }
     firstUpdated() {
         void this._bootstrap();
+        this._onVisibility = () => {
+            this._pageVisible = document.visibilityState !== "hidden";
+            if (this._pageVisible)
+                void this._refresh();
+        };
+        document.addEventListener("visibilitychange", this._onVisibility);
     }
     disconnectedCallback() {
         super.disconnectedCallback();
@@ -1865,33 +1910,64 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             clearInterval(this._refreshTimer);
         if (this._lookupTimer)
             clearTimeout(this._lookupTimer);
+        if (this._onVisibility) {
+            document.removeEventListener("visibilitychange", this._onVisibility);
+        }
     }
     async _bootstrap() {
         if (!this.hass)
             return;
-        const eid = await resolveEntryId(this.hass, this.config?.instance);
-        if (!eid) {
-            this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
-            this._loading = false;
-            return;
+        try {
+            const eid = await resolveEntryId(this.hass, this.config?.instance);
+            if (!eid) {
+                this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+                this._loading = false;
+                return;
+            }
+            this._entryId = eid;
+            await this._refresh();
+            this._schedulePoll();
         }
-        this._entryId = eid;
-        await this._refresh();
-        this._schedulePoll();
+        catch {
+            this._configError =
+                "Movies card can't start. Check the Arr integration in Settings.";
+            this._loading = false;
+        }
     }
     _schedulePoll() {
         if (this._refreshTimer)
             clearInterval(this._refreshTimer);
         const ms = this._tab === "downloading" ? 5000 : 30000;
-        this._refreshTimer = setInterval(() => void this._refresh(), ms);
+        this._refreshTimer = setInterval(() => {
+            if (!this._pageVisible)
+                return;
+            void this._refresh();
+        }, ms);
     }
     async _refresh() {
-        if (!this._entryId || !this.hass)
+        if (!this._entryId || !this.hass || !this._pageVisible)
             return;
+        const queueOnly = this._tab === "downloading" &&
+            Date.now() - this._lastFullRefresh < this._fullRefreshMs;
         try {
-            const data = (await callArr(this.hass, this._entryId, "get_state"));
+            const data = (await callArr(this.hass, this._entryId, "get_state", queueOnly ? { scope: "queue" } : undefined));
             const wasOff = this._offline;
-            this._state = data;
+            if (queueOnly && this._state) {
+                this._state = {
+                    ...this._state,
+                    reachable: data.reachable,
+                    queue: data.queue,
+                    queue_count: data.queue_count,
+                    health: data.health,
+                    disk_space: data.disk_space,
+                    last_success: data.last_success,
+                };
+            }
+            else {
+                await this._signMoviePosters(data.movies ?? []);
+                this._state = data;
+                this._lastFullRefresh = Date.now();
+            }
             this._failCount = 0;
             if (!data.reachable)
                 this._failCount = 3;
@@ -1906,11 +1982,31 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             this._loading = false;
         }
     }
+    async _signMoviePosters(movies) {
+        if (!this.hass)
+            return;
+        await Promise.all(movies.map(async (m) => {
+            const url = m.posterUrl;
+            if (url?.startsWith("/api/arr_dashboard")) {
+                m.posterUrl = await signPosterPath(this.hass, url);
+            }
+        }));
+    }
+    /** UI-only; the integration still accepts every websocket command (§2.2). */
     get _hideDestructive() {
         return Boolean(this.config.hide_destructive_actions);
     }
     get _offline() {
         return this._failCount >= 3 || this._state?.reachable === false;
+    }
+    get _gridColumns() {
+        if (this._libraryView === "list")
+            return 1;
+        if (this._compact)
+            return 2;
+        if (this._layoutTablet)
+            return 4;
+        return 3;
     }
     get _layoutTablet() {
         const cfg = this.config ?? {};
@@ -2019,7 +2115,10 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._selectedMovie = m;
         try {
             const res = (await this._ws("get_movie", { movie_id: m.id }));
-            this._detailExtra = res.movie;
+            this._detailExtra = {
+                ...res.movie,
+                grabbed_history: res.grabbed_history ?? [],
+            };
         }
         catch {
             this._detailExtra = undefined;
@@ -2239,7 +2338,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         const rec = showRows.includes("recent")
             ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
             : [];
+        const cols = this._gridColumns;
         const useVirtual = movies.length > VIRTUAL_THRESHOLD;
+        const virtualRows = cols > 1 ? Math.ceil(movies.length / cols) : movies.length;
         const letters = this._librarySort === "title" && this._layoutTablet
             ? indexLetters(movies)
             : [];
@@ -2317,10 +2418,13 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
           ${useVirtual
             ? b `
                 <arr-virtual-list
-                  data-screen="L04"
-                  .itemCount=${movies.length}
-                  .itemHeight=${this._libraryView === "list" ? 64 : 140}
+                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
+                  .itemCount=${virtualRows}
+                  .columns=${cols}
+                  .itemHeight=${this._libraryView === "list" ? 64 : 160}
+                  rowClass=${this._libraryView === "grid" ? "grid" : "list-view"}
                   .renderItem=${(i) => this._libraryItem(movies[i])}
+                  .renderRow=${(start, count) => Array.from({ length: count }, (_, j) => this._libraryItem(movies[start + j]))}
                 ></arr-virtual-list>
               `
             : b `
@@ -2690,25 +2794,27 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
           Change quality profile
         </button>
       </div>
-      ${!hide && m.hasFile
+      ${!hide
             ? b `
             <section>
               <h3>Fix or remove</h3>
-              <button
-                class="outline-danger"
-                data-action="delete-redownload"
-                ?disabled=${this._offline}
-                @click=${() => this._openConfirm("m09", {
-                title: m.title,
-                year: m.year,
-                quality: m.quality,
-                size: m.sizeOnDisk,
-                movie_id: m.id,
-                showBlockCheckbox: true,
-            })}
-              >
-                Delete file & redownload
-              </button>
+              ${m.hasFile
+                ? b `<button
+                    class="outline-danger"
+                    data-action="delete-redownload"
+                    ?disabled=${this._offline}
+                    @click=${() => this._openConfirm("m09", {
+                    title: m.title,
+                    year: m.year,
+                    quality: m.quality,
+                    size: m.sizeOnDisk,
+                    movie_id: m.id,
+                    showBlockCheckbox: Boolean(this._detailExtra?.grabbed_history?.length),
+                })}
+                  >
+                    Delete file & redownload
+                  </button>`
+                : A}
               <button
                 class="outline-danger"
                 data-action="remove-movie"
@@ -2799,7 +2905,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     }
     _releaseRow(r) {
         const rejected = r.approved === false;
-        const reasons = (r.rejections ?? []).join(", ");
+        const reasons = (r.rejections ?? []).join(" · ");
         return b `
       <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
         <div>
@@ -2811,13 +2917,15 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             ? b `<p class="hint-muted">${reasons}</p>`
             : A}
         </div>
-        <button
-          class="primary"
-          ?disabled=${this._offline || this._releaseBusy}
-          @click=${() => this._grabRelease(r, rejected, reasons)}
-        >
-          ${rejected ? "Grab anyway" : "Grab"}
-        </button>
+        ${rejected && this._hideDestructive
+            ? A
+            : b `<button
+              class="primary"
+              ?disabled=${this._offline || this._releaseBusy}
+              @click=${() => this._grabRelease(r, rejected, reasons)}
+            >
+              ${rejected ? "Grab anyway" : "Grab"}
+            </button>`}
       </div>
     `;
     }

@@ -50,6 +50,7 @@ import "./virtual-list";
 import {
   callArr,
   resolveEntryId,
+  signPosterPath,
   type ArrState,
   type MovieSlim,
   type QueueItem,
@@ -124,6 +125,9 @@ export class ArrDashboardCard extends LitElement {
     number,
     { at: number; releases: ReleaseRow[] }
   >();
+  private _lastFullRefresh = 0;
+  private _pageVisible = true;
+  private readonly _fullRefreshMs = 5 * 60 * 1000;
 
   public setConfig(config: ArrCardConfig): void {
     if (!config.type) {
@@ -173,6 +177,11 @@ export class ArrDashboardCard extends LitElement {
 
   protected firstUpdated(): void {
     void this._bootstrap();
+    this._onVisibility = () => {
+      this._pageVisible = document.visibilityState !== "hidden";
+      if (this._pageVisible) void this._refresh();
+    };
+    document.addEventListener("visibilitychange", this._onVisibility);
   }
 
   disconnectedCallback(): void {
@@ -180,39 +189,71 @@ export class ArrDashboardCard extends LitElement {
     this._ro?.disconnect();
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     if (this._lookupTimer) clearTimeout(this._lookupTimer);
+    if (this._onVisibility) {
+      document.removeEventListener("visibilitychange", this._onVisibility);
+    }
   }
+
+  private _onVisibility?: () => void;
 
   private _ro?: ResizeObserver;
 
   private async _bootstrap(): Promise<void> {
     if (!this.hass) return;
-    const eid = await resolveEntryId(this.hass, this.config?.instance);
-    if (!eid) {
-      this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+    try {
+      const eid = await resolveEntryId(this.hass, this.config?.instance);
+      if (!eid) {
+        this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+        this._loading = false;
+        return;
+      }
+      this._entryId = eid;
+      await this._refresh();
+      this._schedulePoll();
+    } catch {
+      this._configError =
+        "Movies card can't start. Check the Arr integration in Settings.";
       this._loading = false;
-      return;
     }
-    this._entryId = eid;
-    await this._refresh();
-    this._schedulePoll();
   }
 
   private _schedulePoll(): void {
     if (this._refreshTimer) clearInterval(this._refreshTimer);
     const ms = this._tab === "downloading" ? 5000 : 30000;
-    this._refreshTimer = setInterval(() => void this._refresh(), ms);
+    this._refreshTimer = setInterval(() => {
+      if (!this._pageVisible) return;
+      void this._refresh();
+    }, ms);
   }
 
   private async _refresh(): Promise<void> {
-    if (!this._entryId || !this.hass) return;
+    if (!this._entryId || !this.hass || !this._pageVisible) return;
+    const queueOnly =
+      this._tab === "downloading" &&
+      Date.now() - this._lastFullRefresh < this._fullRefreshMs;
     try {
       const data = (await callArr(
         this.hass,
         this._entryId,
         "get_state",
+        queueOnly ? { scope: "queue" } : undefined,
       )) as ArrState;
       const wasOff = this._offline;
-      this._state = data;
+      if (queueOnly && this._state) {
+        this._state = {
+          ...this._state,
+          reachable: data.reachable,
+          queue: data.queue,
+          queue_count: data.queue_count,
+          health: data.health,
+          disk_space: data.disk_space,
+          last_success: data.last_success,
+        };
+      } else {
+        await this._signMoviePosters(data.movies ?? []);
+        this._state = data;
+        this._lastFullRefresh = Date.now();
+      }
       this._failCount = 0;
       if (!data.reachable) this._failCount = 3;
       if (wasOff && !this._offline) {
@@ -225,12 +266,32 @@ export class ArrDashboardCard extends LitElement {
     }
   }
 
+  private async _signMoviePosters(movies: MovieSlim[]): Promise<void> {
+    if (!this.hass) return;
+    await Promise.all(
+      movies.map(async (m) => {
+        const url = m.posterUrl;
+        if (url?.startsWith("/api/arr_dashboard")) {
+          m.posterUrl = await signPosterPath(this.hass, url);
+        }
+      }),
+    );
+  }
+
+  /** UI-only; the integration still accepts every websocket command (§2.2). */
   private get _hideDestructive(): boolean {
     return Boolean(this.config.hide_destructive_actions);
   }
 
   private get _offline(): boolean {
     return this._failCount >= 3 || this._state?.reachable === false;
+  }
+
+  private get _gridColumns(): number {
+    if (this._libraryView === "list") return 1;
+    if (this._compact) return 2;
+    if (this._layoutTablet) return 4;
+    return 3;
   }
 
   private get _layoutTablet(): boolean {
@@ -352,8 +413,12 @@ export class ArrDashboardCard extends LitElement {
     try {
       const res = (await this._ws("get_movie", { movie_id: m.id })) as {
         movie: Record<string, unknown>;
+        grabbed_history?: unknown[];
       };
-      this._detailExtra = res.movie;
+      this._detailExtra = {
+        ...res.movie,
+        grabbed_history: res.grabbed_history ?? [],
+      };
     } catch {
       this._detailExtra = undefined;
     }
@@ -644,7 +709,10 @@ export class ArrDashboardCard extends LitElement {
     const rec = showRows.includes("recent")
       ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
       : [];
+    const cols = this._gridColumns;
     const useVirtual = movies.length > VIRTUAL_THRESHOLD;
+    const virtualRows =
+      cols > 1 ? Math.ceil(movies.length / cols) : movies.length;
     const letters =
       this._librarySort === "title" && this._layoutTablet
         ? indexLetters(movies)
@@ -729,10 +797,16 @@ export class ArrDashboardCard extends LitElement {
           ${useVirtual
             ? html`
                 <arr-virtual-list
-                  data-screen="L04"
-                  .itemCount=${movies.length}
-                  .itemHeight=${this._libraryView === "list" ? 64 : 140}
+                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
+                  .itemCount=${virtualRows}
+                  .columns=${cols}
+                  .itemHeight=${this._libraryView === "list" ? 64 : 160}
+                  rowClass=${this._libraryView === "grid" ? "grid" : "list-view"}
                   .renderItem=${(i: number) => this._libraryItem(movies[i])}
+                  .renderRow=${(start: number, count: number) =>
+                    Array.from({ length: count }, (_, j) =>
+                      this._libraryItem(movies[start + j]),
+                    )}
                 ></arr-virtual-list>
               `
             : html`
@@ -1121,26 +1195,34 @@ export class ArrDashboardCard extends LitElement {
           Change quality profile
         </button>
       </div>
-      ${!hide && m.hasFile
+      ${!hide
         ? html`
             <section>
               <h3>Fix or remove</h3>
-              <button
-                class="outline-danger"
-                data-action="delete-redownload"
-                ?disabled=${this._offline}
-                @click=${() =>
-                  this._openConfirm("m09", {
-                    title: m.title,
-                    year: m.year,
-                    quality: m.quality,
-                    size: m.sizeOnDisk,
-                    movie_id: m.id,
-                    showBlockCheckbox: true,
-                  })}
-              >
-                Delete file & redownload
-              </button>
+              ${m.hasFile
+                ? html`<button
+                    class="outline-danger"
+                    data-action="delete-redownload"
+                    ?disabled=${this._offline}
+                    @click=${() =>
+                      this._openConfirm("m09", {
+                        title: m.title,
+                        year: m.year,
+                        quality: m.quality,
+                        size: m.sizeOnDisk,
+                        movie_id: m.id,
+                        showBlockCheckbox: Boolean(
+                          (
+                            this._detailExtra?.grabbed_history as
+                              | unknown[]
+                              | undefined
+                          )?.length,
+                        ),
+                      })}
+                  >
+                    Delete file & redownload
+                  </button>`
+                : nothing}
               <button
                 class="outline-danger"
                 data-action="remove-movie"
@@ -1237,7 +1319,7 @@ export class ArrDashboardCard extends LitElement {
 
   private _releaseRow(r: ReleaseRow) {
     const rejected = r.approved === false;
-    const reasons = (r.rejections ?? []).join(", ");
+    const reasons = (r.rejections ?? []).join(" · ");
     return html`
       <div class="release-row ${rejected ? "rejected" : ""}" role="listitem">
         <div>
@@ -1249,13 +1331,15 @@ export class ArrDashboardCard extends LitElement {
             ? html`<p class="hint-muted">${reasons}</p>`
             : nothing}
         </div>
-        <button
-          class="primary"
-          ?disabled=${this._offline || this._releaseBusy}
-          @click=${() => this._grabRelease(r, rejected, reasons)}
-        >
-          ${rejected ? "Grab anyway" : "Grab"}
-        </button>
+        ${rejected && this._hideDestructive
+          ? nothing
+          : html`<button
+              class="primary"
+              ?disabled=${this._offline || this._releaseBusy}
+              @click=${() => this._grabRelease(r, rejected, reasons)}
+            >
+              ${rejected ? "Grab anyway" : "Grab"}
+            </button>`}
       </div>
     `;
   }

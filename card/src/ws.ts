@@ -72,6 +72,32 @@ export interface QualityProfile {
   name: string;
 }
 
+export interface ConfigEntryFragment {
+  entry_id: string;
+  domain: string;
+  title: string;
+}
+
+const posterSignCache = new Map<string, string>();
+
+export async function signPosterPath(
+  hass: HomeAssistant,
+  path: string,
+): Promise<string> {
+  if (!path.startsWith("/api/arr_dashboard")) {
+    return path;
+  }
+  const cached = posterSignCache.get(path);
+  if (cached) return cached;
+  const res = (await hass.callWS({
+    type: "auth/sign_path",
+    path,
+    expires: 60 * 60,
+  })) as { path: string };
+  posterSignCache.set(path, res.path);
+  return res.path;
+}
+
 export async function callArr(
   hass: HomeAssistant,
   entryId: string,
@@ -91,13 +117,15 @@ export async function resolveEntryId(
   instance?: string,
 ): Promise<string | undefined> {
   const entries = (await hass.callWS({
-    type: "config_entries/list",
-  })) as { entry_id: string; domain: string; title: string }[];
+    type: "config_entries/get",
+    domain: "arr_dashboard",
+  })) as ConfigEntryFragment[];
   const arr = entries.filter((e) => e.domain === "arr_dashboard");
   if (!arr.length) return undefined;
   if (!instance) return arr[0].entry_id;
   const match = arr.find(
     (e) => e.entry_id === instance || e.title === instance,
   );
-  return match?.entry_id ?? arr[0].entry_id;
+  if (!match) return undefined;
+  return match.entry_id;
 }

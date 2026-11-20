@@ -189,6 +189,12 @@ export const cardStyles = css`
     margin-top: 8px;
   }
 
+  .arr-virtual-host {
+    display: block;
+    overflow: auto;
+    max-height: var(--arr-virtual-height, 520px);
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));

@@ -16,10 +16,13 @@ function mockMovies(count: number) {
 
 const mockHass = {
   callWS: async (msg: Record<string, unknown>) => {
-    if (msg.type === "config_entries/list") {
+    if (msg.type === "config_entries/get") {
       return [{ entry_id: "abc", domain: "arr_dashboard", title: "Radarr" }];
     }
-    if (msg.command === "get_state") {
+    if (msg.type === "auth/sign_path") {
+      return { path: `${String(msg.path)}?auth=signed` };
+    }
+    if (msg.type === "arr_dashboard" && msg.command === "get_state") {
       return {
         reachable: true,
         movies: mockMovies(60),
@@ -46,10 +49,28 @@ const mockHass = {
         last_success: new Date().toISOString(),
       };
     }
-  return {};
+    return {};
   },
   locale: { language: "en" },
 };
+
+describe("arr-card bootstrap G03", () => {
+  it("shows config error when config_entries/get fails", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = {
+      callWS: async () => {
+        throw new Error("unknown_command");
+      },
+    } as never;
+    el.setConfig({ type: "custom:arr-card" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 40));
+    await el.updateComplete;
+    const err = el.shadowRoot?.querySelector('[data-screen="G03"]');
+    expect(err).to.exist;
+  });
+});
 
 describe("arr-card hide_destructive_actions", () => {
   let el: ArrDashboardCard;
@@ -79,23 +100,6 @@ describe("arr-card hide_destructive_actions", () => {
     expect(removeSearch).to.be.null;
     const hint = el.shadowRoot?.querySelector('[data-screen="D07T"]');
     expect(hint?.textContent).to.contain("Removing is turned off");
-  });
-});
-
-describe("arr-card confirm screen ids", () => {
-  it("tags M06 on rejected grab confirm", async () => {
-    const el = document.createElement("arr-card") as ArrDashboardCard;
-    el.hass = mockHass as never;
-    el.setConfig({ type: "custom:arr-card" });
-    document.body.appendChild(el);
-    await el.updateComplete;
-    (el as unknown as { _openConfirm: (k: string, p: object) => void })._openConfirm(
-      "m06",
-      { reasons: "CAM", releaseName: "Bad.cam", size: 1e9 },
-    );
-    await el.updateComplete;
-    const dialog = el.shadowRoot?.querySelector('[data-screen="M06"]');
-    expect(dialog).to.exist;
   });
 });
 
@@ -142,6 +146,23 @@ describe("arr-card confirm dialog", () => {
     await el.updateComplete;
     const title = el.shadowRoot?.querySelector("#confirm-title");
     expect(title?.textContent).to.equal("Delete file and redownload?");
+  });
+});
+
+describe("arr-card confirm screen ids", () => {
+  it("tags M06 on rejected grab confirm", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    (el as unknown as { _openConfirm: (k: string, p: object) => void })._openConfirm(
+      "m06",
+      { reasons: "CAM", releaseName: "Bad.cam", size: 1e9 },
+    );
+    await el.updateComplete;
+    const dialog = el.shadowRoot?.querySelector('[data-screen="M06"]');
+    expect(dialog).to.exist;
   });
 });
 
@@ -208,5 +229,97 @@ describe("arr-card virtual list", () => {
     await el.updateComplete;
     const list = el.shadowRoot?.querySelector("arr-virtual-list");
     expect(list).to.exist;
+  });
+
+  it("keeps grid row layout for 300 movies", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = {
+      callWS: async (msg: Record<string, unknown>) => {
+        if (msg.type === "config_entries/get") {
+          return [{ entry_id: "abc", domain: "arr_dashboard", title: "Radarr" }];
+        }
+        if (msg.type === "arr_dashboard" && msg.command === "get_state") {
+          return {
+            reachable: true,
+            movies: mockMovies(300),
+            queue: { records: [], totalRecords: 0 },
+            queue_count: 0,
+            health: [],
+            disk_space: [],
+            root_folders: [],
+            quality_profiles: [],
+            system: {},
+          };
+        }
+        return {};
+      },
+    } as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["library"],
+      default_tab: "library",
+      library_view: "grid",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 120));
+    await el.updateComplete;
+    const list = el.shadowRoot?.querySelector("arr-virtual-list.grid");
+    expect(list).to.exist;
+    const gridRow = list?.querySelector(".grid .poster-btn");
+    expect(gridRow).to.exist;
+  });
+});
+
+describe("arr-card remove missing movie", () => {
+  it("shows remove movie without delete when there is no file", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card", tabs: ["library"] });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    (el as unknown as { _selectedMovie: object })._selectedMovie = {
+      id: 9,
+      title: "Missing",
+      year: 2022,
+      hasFile: false,
+    };
+    await el.updateComplete;
+    const deleteBtn = el.shadowRoot?.querySelector(
+      '[data-action="delete-redownload"]',
+    );
+    const removeBtn = el.shadowRoot?.querySelector('[data-action="remove-movie"]');
+    expect(deleteBtn).to.be.null;
+    expect(removeBtn).to.exist;
+  });
+});
+
+describe("arr-card hide grab anyway", () => {
+  it("omits Grab anyway on rejected releases", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      hide_destructive_actions: true,
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    Object.assign(el, {
+      _manualMovieId: 1,
+      _releaseBusy: false,
+      _releases: [
+        {
+          title: "Bad",
+          approved: false,
+          rejections: ["CAM"],
+          size: 1e9,
+        },
+      ],
+      _showRejected: true,
+    });
+    el.requestUpdate();
+    await el.updateComplete;
+    const grab = el.shadowRoot?.querySelector(".release-row button");
+    expect(grab).to.be.null;
   });
 });

@@ -92,7 +92,26 @@ class RadarrClient(ArrClientBase):
         )
 
     async def get_queue(self) -> dict[str, Any]:
-        return await self.get("/api/v3/queue", params={"includeMovie": "true"})
+        page_size = 100
+        page = 1
+        all_records: list[dict[str, Any]] = []
+        total = 0
+        while True:
+            chunk = await self.get(
+                "/api/v3/queue",
+                params={
+                    "includeMovie": "true",
+                    "page": page,
+                    "pageSize": page_size,
+                },
+            )
+            records = chunk.get("records") or []
+            all_records.extend(records)
+            total = int(chunk.get("totalRecords") or len(all_records))
+            if len(all_records) >= total or not records:
+                break
+            page += 1
+        return {"records": all_records, "totalRecords": total}
 
     async def remove_queue_item(
         self,
@@ -163,6 +182,7 @@ class RadarrClient(ArrClientBase):
             url,
             headers=self._headers(),
             timeout=aiohttp.ClientTimeout(total=30),
+            allow_redirects=False,
         ) as resp:
             if resp.status != 200:
                 raise ArrClientError(f"Poster fetch failed: HTTP {resp.status}")

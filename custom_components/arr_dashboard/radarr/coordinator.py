@@ -49,6 +49,7 @@ class _QueueSnap:
     quality: str | None
     size: int | None
     active: bool
+    had_file: bool
 
 
 def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
@@ -80,11 +81,12 @@ def _slim_movie(movie: dict[str, Any], entry_id: str) -> dict[str, Any]:
         "overview": movie.get("overview"),
         "runtime": movie.get("runtime"),
         "certification": movie.get("certification"),
-        "movieFile": movie.get("movieFile"),
     }
 
 
-def _queue_snap(item: dict[str, Any]) -> _QueueSnap:
+def _queue_snap(
+    item: dict[str, Any], movies_by_id: dict[int, dict[str, Any]]
+) -> _QueueSnap:
     movie = item.get("movie") or {}
     st = (item.get("status") or "").lower()
     tracked = (
@@ -98,14 +100,19 @@ def _queue_snap(item: dict[str, Any]) -> _QueueSnap:
         "importblocked",
     }
     quality = (item.get("quality") or {}).get("quality", {}).get("name")
+    movie_id = movie.get("id")
+    had_file = bool(
+        movies_by_id.get(int(movie_id or 0), {}).get("hasFile")
+    )
     return _QueueSnap(
         queue_id=int(item["id"]),
-        movie_id=movie.get("id"),
+        movie_id=movie_id,
         title=movie.get("title"),
         year=movie.get("year"),
         quality=quality,
         size=item.get("size"),
         active=active,
+        had_file=had_file,
     )
 
 
@@ -140,6 +147,8 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
         self._seen_health: set[str] = set()
         self._prev_queue: dict[int, _QueueSnap] = {}
         self._active_health: set[str] = set()
+        self._queue_events_seeded = False
+        self._health_events_seeded = False
         super().__init__(
             hass,
             _LOGGER,
@@ -178,13 +187,19 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
         except ArrInvalidAuth as err:
             self.config_entry.async_start_reauth(self.hass)
             raise UpdateFailed("Authentication failed") from err
-        except (ArrCannotConnect, ArrClientError) as err:
+        except (ArrCannotConnect, ArrClientError):
+            previous = self.data or ArrDashboardData()
             data.reachable = False
-            if self.data:
-                data.movies = self.data.movies
-                data.queue = self.data.queue
-                data.queue_count = self.data.queue_count
-            raise UpdateFailed(str(err)) from err
+            data.movies = previous.movies
+            data.queue = previous.queue
+            data.queue_count = previous.queue_count
+            data.health = previous.health
+            data.disk_space = previous.disk_space
+            data.system = previous.system
+            data.root_folders = previous.root_folders
+            data.quality_profiles = previous.quality_profiles
+            data.last_success = previous.last_success
+            return data
         return data
 
     @callback
@@ -196,15 +211,32 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
         records: list[dict[str, Any]],
         movies: list[dict[str, Any]],
     ) -> None:
+        movies_by_id = {m["id"]: m for m in movies}
         current: dict[int, _QueueSnap] = {}
         for item in records:
             qid = item.get("id")
             if qid is None:
                 continue
-            snap = _queue_snap(item)
+            snap = _queue_snap(item, movies_by_id)
             current[int(qid)] = snap
-            if _is_failed(item) and int(qid) not in self._seen_failed:
-                self._seen_failed.add(int(qid))
+
+        if not self._queue_events_seeded:
+            for qid in current:
+                item = next((r for r in records if int(r["id"]) == qid), None)
+                if item and _is_failed(item):
+                    self._seen_failed.add(qid)
+            self._prev_queue = current
+            self._queue_events_seeded = True
+            return
+
+        for item in records:
+            qid = item.get("id")
+            if qid is None:
+                continue
+            qid = int(qid)
+            snap = current[qid]
+            if _is_failed(item) and qid not in self._seen_failed:
+                self._seen_failed.add(qid)
                 reason = item.get("statusMessages") or item.get("errorMessage")
                 if isinstance(reason, list):
                     reason = ", ".join(str(r) for r in reason)
@@ -221,10 +253,11 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
                 )
 
         removed = set(self._prev_queue.keys()) - set(current.keys())
-        movies_by_id = {m["id"]: m for m in movies}
         for qid in removed:
             prev = self._prev_queue[qid]
             if not prev.active or qid in self._seen_completed:
+                continue
+            if prev.had_file:
                 continue
             movie = movies_by_id.get(prev.movie_id or 0)
             if movie and movie.get("hasFile"):
@@ -250,6 +283,21 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
                 continue
             key = _health_key(item)
             current_keys.add(key)
+
+        if not self._health_events_seeded:
+            self._active_health = current_keys
+            self._seen_health.update(current_keys)
+            self._health_events_seeded = True
+            return
+
+        cleared = self._active_health - current_keys
+        for key in cleared:
+            self._seen_health.discard(key)
+
+        for item in health:
+            if item.get("type") not in ("warning", "error"):
+                continue
+            key = _health_key(item)
             if key not in self._active_health and key not in self._seen_health:
                 self._seen_health.add(key)
                 self._fire(
@@ -262,6 +310,3 @@ class RadarrDataUpdateCoordinator(DataUpdateCoordinator[ArrDashboardData]):
                     ),
                 )
         self._active_health = current_keys
-
-    async def async_request_refresh_movies(self) -> None:
-        await self.async_request_refresh()

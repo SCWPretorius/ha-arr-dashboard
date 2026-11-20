@@ -68,7 +68,10 @@ class ArrClientBase:
                 params=params,
                 json=json,
                 timeout=aiohttp.ClientTimeout(total=30),
+                allow_redirects=False,
             ) as resp:
+                if resp.status in (301, 302, 303, 307, 308):
+                    raise ArrClientError("Redirects are not allowed")
                 if resp.status == 401:
                     raise ArrInvalidAuth
                 if resp.status == 404:

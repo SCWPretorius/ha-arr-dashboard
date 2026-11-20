@@ -34,7 +34,7 @@ class ArrDashboardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> ArrDashboardOptionsFlow:
-        return ArrDashboardOptionsFlow(config_entry)
+        return ArrDashboardOptionsFlow()
 
     def __init__(self) -> None:
         self._url: str | None = None
@@ -136,9 +136,6 @@ class ArrDashboardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class ArrDashboardOptionsFlow(config_entries.OptionsFlow):
     """Options flow handler."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

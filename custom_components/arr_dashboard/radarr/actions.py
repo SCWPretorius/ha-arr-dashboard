@@ -47,13 +47,15 @@ async def async_retry_import(
 
 async def async_delete_file_redownload(
     client: RadarrClient, data: dict[str, Any]
-) -> None:
+) -> dict[str, Any]:
     """Delete movie file, optionally blocklist, then search."""
     movie = await client.get_movie(int(data["movie_id"]))
+    blocked = False
     if data.get("block_release"):
         history = await client.get_history_grabbed(movie["id"])
         if history:
             await client.mark_history_failed(history[0]["id"])
+            blocked = True
     movie_file = movie.get("movieFile")
     if movie_file:
         await client.delete_movie_file(movie_file["id"])
@@ -61,3 +63,4 @@ async def async_delete_file_redownload(
         movie["monitored"] = True
         await client.update_movie(movie)
     await client.release_search(movie["id"])
+    return {"blocked_release": blocked}

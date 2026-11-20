@@ -65,7 +65,7 @@ export function renderConfirmDialog(
           ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
           searches for a new copy.
         </p>
-        <p>You can't watch it until the new download finishes.</p>
+        <p>You can’t watch it until the new download finishes.</p>
       `;
       actionLabel = "Delete file & redownload";
       if (p.showBlockCheckbox) {
@@ -77,7 +77,7 @@ export function renderConfirmDialog(
               @change=${(e: Event) =>
                 setBlockRelease((e.target as HTMLInputElement).checked)}
             />
-            Block this release so it isn't downloaded again.
+            Block this release so it isn’t downloaded again.
           </label>
           <p class="hint-muted">Recommended if the file was bad.</p>
         `;
@@ -113,7 +113,7 @@ export function renderConfirmDialog(
             @change=${(e: Event) =>
               setAddImportExclusion((e.target as HTMLInputElement).checked)}
           />
-          Don't add it again from lists
+          Don’t add it again from lists
         </label>
       `;
       break;
@@ -122,7 +122,7 @@ export function renderConfirmDialog(
       body = html`
         <p>
           <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
-          the download client and this release is blocked so it isn't grabbed
+          the download client and this release is blocked so it isn’t grabbed
           again.
         </p>
       `;

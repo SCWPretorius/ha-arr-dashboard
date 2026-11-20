@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -25,6 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 CARD_URL = "/arr_dashboard/frontend/arr-dashboard-card.js"
+CARD_JS_REGISTERED = "arr_dashboard_card_js_registered"
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -33,6 +33,8 @@ async def async_setup(hass: HomeAssistant, _config: dict | None = None) -> bool:
     """Set up the Arr Dashboard integration."""
     hass.data.setdefault(DOMAIN, {})
     async_register_websocket_handlers(hass)
+    if hass.http:
+        hass.http.register_view(ArrDashboardPosterView())
     return True
 
 
@@ -56,14 +58,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     frontend_dir = Path(__path__[0]) / "frontend"
-    registering_frontend = (
-        (frontend_dir / "arr-dashboard-card.js").is_file()
-        and hass.http
-        and not os.environ.get("PYTEST_CURRENT_TEST")
-    )
-    if hass.http and not os.environ.get("PYTEST_CURRENT_TEST"):
-        hass.http.register_view(ArrDashboardPosterView())
-    if registering_frontend:
+    card_js = frontend_dir / "arr-dashboard-card.js"
+    if card_js.is_file() and hass.http:
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
@@ -73,6 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
             ]
         )
+        hass.data[CARD_JS_REGISTERED] = True
         if "frontend_extra_module_url" in hass.data:
             add_extra_js_url(hass, CARD_URL)
 

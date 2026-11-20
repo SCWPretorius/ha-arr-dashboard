@@ -1,44 +1,40 @@
-import { css, html, LitElement } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+/**
+ * Virtual scroller that renders into light DOM so parent card styles apply.
+ */
 @customElement("arr-virtual-list")
 export class ArrVirtualList extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      position: relative;
-      overflow: auto;
-      max-height: var(--arr-virtual-height, 480px);
-    }
-    .viewport {
-      position: relative;
-      width: 100%;
-    }
-    .spacer {
-      width: 100%;
-      pointer-events: none;
-    }
-    .window {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-    }
-  `;
-
   @property({ type: Number }) itemHeight = 72;
   @property({ type: Number }) itemCount = 0;
+  @property({ type: Number }) columns = 1;
+  @property({ type: String }) rowClass = "";
   @property({ attribute: false }) renderItem!: (
     index: number,
+  ) => unknown;
+  @property({ attribute: false }) renderRow!: (
+    startIndex: number,
+    count: number,
   ) => unknown;
 
   @state() private _scrollTop = 0;
   @state() private _height = 400;
 
-  private _ro?: ResizeObserver;
+  protected createRenderRoot() {
+    return this;
+  }
+
+  private _rowCount(): number {
+    if (this.columns <= 1) return this.itemCount;
+    return Math.ceil(this.itemCount / this.columns);
+  }
+
+  private _onScrollBound?: (e: Event) => void;
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.classList.add("arr-virtual-host");
     this._onScrollBound = this._onScroll.bind(this);
     this.addEventListener("scroll", this._onScrollBound);
     this._ro = new ResizeObserver(() => {
@@ -55,30 +51,47 @@ export class ArrVirtualList extends LitElement {
     super.disconnectedCallback();
   }
 
-  private _onScrollBound?: (e: Event) => void;
+  private _ro?: ResizeObserver;
 
   private _onScroll(): void {
     this._scrollTop = this.scrollTop;
   }
 
   protected render() {
+    const rows = this._rowCount();
     const buffer = this.itemHeight * 4;
-    const total = this.itemCount * this.itemHeight;
-    const start = Math.max(0, Math.floor((this._scrollTop - buffer) / this.itemHeight));
-    const visible = Math.ceil((this._height + buffer * 2) / this.itemHeight);
-    const end = Math.min(this.itemCount, start + visible);
-    const items = [];
-    for (let i = start; i < end; i++) {
-      items.push(this.renderItem(i));
+    const total = rows * this.itemHeight;
+    const startRow = Math.max(
+      0,
+      Math.floor((this._scrollTop - buffer) / this.itemHeight),
+    );
+    const visibleRows = Math.ceil((this._height + buffer * 2) / this.itemHeight);
+    const endRow = Math.min(rows, startRow + visibleRows);
+    const rowNodes = [];
+    for (let row = startRow; row < endRow; row++) {
+      const startIndex = row * this.columns;
+      if (this.columns <= 1) {
+        rowNodes.push(this.renderItem(startIndex));
+      } else if (this.renderRow) {
+        const count = Math.min(
+          this.columns,
+          this.itemCount - startIndex,
+        );
+        rowNodes.push(
+          html`<div class=${this.rowClass} role="presentation">
+            ${this.renderRow(startIndex, count)}
+          </div>`,
+        );
+      }
     }
     return html`
-      <div class="viewport">
-        <div class="spacer" style="height: ${total}px"></div>
+      <div class="viewport" style="position:relative;width:100%">
+        <div class="spacer" style="height:${total}px;width:100%"></div>
         <div
           class="window"
-          style="transform: translateY(${start * this.itemHeight}px)"
+          style="position:absolute;left:0;right:0;top:0;transform:translateY(${startRow * this.itemHeight}px)"
         >
-          ${items}
+          ${rowNodes}
         </div>
       </div>
     `;

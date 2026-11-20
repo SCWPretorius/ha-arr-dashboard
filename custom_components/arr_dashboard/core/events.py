@@ -17,16 +17,12 @@ def movie_event_base(
     reason: str | None = None,
 ) -> dict[str, Any]:
     """Build the standard Arr card event payload."""
-    data: dict[str, Any] = {
+    return {
         "instance": instance,
         "media_type": MEDIA_TYPE_MOVIE,
         "title": title,
         "year": year,
+        "quality": quality,
+        "size": size,
+        "reason": reason,
     }
-    if quality is not None:
-        data["quality"] = quality
-    if size is not None:
-        data["size"] = size
-    if reason is not None:
-        data["reason"] = reason
-    return data

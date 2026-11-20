@@ -35,6 +35,12 @@ async def test_failed_event_once_per_queue_id(
     }
     coord._process_queue_events([item], [])
     coord._process_queue_events([item], [])
+    assert fired.count(EVENT_DOWNLOAD_FAILED) == 0
+    item2 = {
+        **item,
+        "id": 6,
+    }
+    coord._process_queue_events([item, item2], [])
     assert fired.count(EVENT_DOWNLOAD_FAILED) == 1
 
 
@@ -47,8 +53,9 @@ async def test_completed_event_on_queue_removal(
     coord = RadarrDataUpdateCoordinator(hass, client, entry)
     fired: list[str] = []
     coord._fire = lambda et, data: fired.append(et)  # type: ignore[method-assign]
+    coord._queue_events_seeded = True
     coord._prev_queue = {
-        1: _QueueSnap(1, 9, "Done", 2020, "1080p", 1_000_000, True)
+        1: _QueueSnap(1, 9, "Done", 2020, "1080p", 1_000_000, True, False)
     }
     movies = [
         {"id": 9, "title": "Done", "year": 2020, "hasFile": True, "quality": "1080p"}
@@ -68,6 +75,9 @@ async def test_health_issue_once(hass: HomeAssistant, radarr_config: dict) -> No
     coord._fire = lambda et, data: fired.append(et)  # type: ignore[method-assign]
     health = [{"type": "warning", "source": "System", "message": "Disk almost full"}]
     coord._process_health_events(health)
+    coord._process_health_events(health)
+    assert fired.count(EVENT_HEALTH_ISSUE) == 0
+    coord._process_health_events([])
     coord._process_health_events(health)
     assert fired.count(EVENT_HEALTH_ISSUE) == 1
 

@@ -73,9 +73,24 @@ async def _handle_command(
 ) -> dict[str, Any]:
     match command:
         case "get_state":
+            scope = data.get("scope", "full")
             cd = coordinator.data
-            return {
+            base = {
                 "reachable": cd.reachable,
+                "last_success": (
+                    cd.last_success.isoformat() if cd.last_success else None
+                ),
+            }
+            if scope == "queue":
+                return {
+                    **base,
+                    "queue": cd.queue,
+                    "queue_count": cd.queue_count,
+                    "health": cd.health,
+                    "disk_space": cd.disk_space,
+                }
+            return {
+                **base,
                 "movies": cd.movies,
                 "queue": cd.queue,
                 "queue_count": cd.queue_count,
@@ -84,9 +99,6 @@ async def _handle_command(
                 "root_folders": cd.root_folders,
                 "quality_profiles": cd.quality_profiles,
                 "system": cd.system,
-                "last_success": (
-                    cd.last_success.isoformat() if cd.last_success else None
-                ),
             }
         case "lookup":
             return {"results": await client.lookup(data["term"])}
@@ -148,9 +160,9 @@ async def _handle_command(
         case "delete_file_redownload":
             from .radarr.actions import async_delete_file_redownload
 
-            await async_delete_file_redownload(client, data)
+            result = await async_delete_file_redownload(client, data)
             await coordinator.async_request_refresh()
-            return {"ok": True}
+            return {"ok": True, **result}
         case "remove_movie":
             await client.delete_movie(
                 int(data["movie_id"]),
