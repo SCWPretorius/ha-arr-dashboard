@@ -3,6 +3,5 @@
   "content_in_root": false,
   "filename": "arr_dashboard",
   "render_readme": true,
-  "homeassistant": "2024.10.0",
-  "iot_class": "local_polling"
+  "homeassistant": "2024.10.0"
 }

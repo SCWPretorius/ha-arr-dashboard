@@ -349,13 +349,13 @@ describe("arr-card M08 quality sheet", () => {
     await el.updateComplete;
     const save = el.shadowRoot?.querySelector(
       '[data-screen="M08"] button.primary',
-    ) as HTMLButtonElement | null;
+    );
     expect(save?.textContent?.trim()).to.equal("Save profile");
-    expect(save?.disabled).to.equal(true);
+    expect(save?.hasAttribute("disabled")).to.equal(true);
     Object.assign(el, { _qualityPendingId: 2 });
     el.requestUpdate();
     await el.updateComplete;
-    expect(save?.disabled).to.equal(false);
+    expect(save?.hasAttribute("disabled")).to.equal(false);
   });
 });
 
