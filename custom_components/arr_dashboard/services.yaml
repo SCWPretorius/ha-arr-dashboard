@@ -1,0 +1,43 @@
+remove_movie:
+  name: Remove movie
+  description: Remove a movie from Radarr.
+  fields:
+    instance:
+      name: Instance
+      required: true
+      selector:
+        text:
+    movie_id:
+      name: Movie ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    delete_files:
+      name: Delete files
+      default: false
+      selector:
+        boolean:
+    add_import_exclusion:
+      name: Add import exclusion
+      default: false
+      selector:
+        boolean:
+
+queue_remove:
+  name: Remove from queue
+  description: Remove an item from the download queue.
+  fields:
+    instance:
+      name: Instance
+      required: true
+      selector:
+        text:
+    queue_id:
+      name: Queue ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box

@@ -1,0 +1,1 @@
+"""Radarr backend for Arr Dashboard."""

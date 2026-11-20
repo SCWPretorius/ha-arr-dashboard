@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Radarr",
+        "description": "Enter your Radarr server URL and API key.",
+        "data": {
+          "url": "Radarr URL",
+          "api_key": "API key",
+          "verify_ssl": "Verify SSL certificate",
+          "name": "Name (optional)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Radarr",
+        "description": "Radarr rejected the API key. Enter a new key.",
+        "data": {
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to Radarr. Check the URL and that Radarr is running.",
+      "invalid_auth": "Invalid API key.",
+      "invalid_url": "Enter a full URL starting with http:// or https://.",
+      "old_version": "Radarr must be version 4.0 or newer.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Radarr instance is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Arr Dashboard options",
+        "data": {
+          "poll_interval": "Poll interval (seconds)"
+        }
+      }
+    }
+  }
+}
