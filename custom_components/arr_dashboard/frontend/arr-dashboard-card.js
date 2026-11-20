@@ -71,11 +71,20 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
  * SPDX-License-Identifier: BSD-3-Clause
  */function r(r){return n({...r,state:true,attribute:false})}
 
-/** Register a custom element once. Lovelace loads this module from two URLs. */
+/** Register a custom element once. Lovelace may import this module more than once. */
 function defineElement(name, ctor) {
     if (customElements.get(name))
         return;
-    customElements.define(name, ctor);
+    try {
+        customElements.define(name, ctor);
+    }
+    catch (err) {
+        if (err instanceof DOMException &&
+            (err.name === "NotSupportedError" || err.name === "NotAllowedError")) {
+            return;
+        }
+        throw err;
+    }
 }
 
 function formatSize(bytes) {
@@ -1194,13 +1203,58 @@ const cardStyles = i$3 `
   .queue-tile-actions {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    width: 100%;
   }
 
-  .queue-tile-actions .compact {
-    font-size: 0.78rem;
-    padding: 8px 10px;
-    min-height: 36px;
+  .tile-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: 5px 8px;
+    min-height: 0;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .tile-action--danger {
+    border: 1px solid
+      color-mix(in srgb, var(--error-color) 45%, transparent);
+    color: var(--arr-danger-text);
+    background: color-mix(in srgb, var(--error-color) 10%, transparent);
+  }
+
+  .tile-action--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--error-color) 18%, transparent);
+    border-color: color-mix(in srgb, var(--error-color) 65%, transparent);
+  }
+
+  .tile-action--muted {
+    color: color-mix(in srgb, var(--arr-danger-text) 75%, #9a9a9a);
+    background: transparent;
+    border-color: color-mix(in srgb, var(--error-color) 28%, transparent);
+  }
+
+  .tile-action--muted:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--error-color) 8%, transparent);
+  }
+
+  .layout-tablet .queue-tile-actions .tile-action {
+    min-height: 0;
+    font-size: 0.68rem;
+    padding: 5px 8px;
   }
 
   .queue-tile.attention .queue-tile-poster {
@@ -3136,7 +3190,7 @@ class ArrDashboardCard extends i {
             ? b `
                 ${failed || row.trackedDownloadStatus === "warning"
                 ? b `<button
-                      class="outline-danger compact"
+                      class="tile-action tile-action--danger"
                       data-action="remove-search-again"
                       data-qid=${row.id}
                       ?disabled=${this._offline}
@@ -3147,7 +3201,7 @@ class ArrDashboardCard extends i {
                 : A}
                 ${failed
                 ? b `<button
-                      class="outline-danger compact"
+                      class="tile-action tile-action--danger tile-action--muted"
                       data-action="queue-remove"
                       data-qid=${row.id}
                       ?disabled=${this._offline}

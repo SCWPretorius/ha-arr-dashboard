@@ -1094,7 +1094,7 @@ export class ArrDashboardCard extends LitElement {
             ? html`
                 ${failed || row.trackedDownloadStatus === "warning"
                   ? html`<button
-                      class="outline-danger compact"
+                      class="tile-action tile-action--danger"
                       data-action="remove-search-again"
                       data-qid=${row.id}
                       ?disabled=${this._offline}
@@ -1105,7 +1105,7 @@ export class ArrDashboardCard extends LitElement {
                   : nothing}
                 ${failed
                   ? html`<button
-                      class="outline-danger compact"
+                      class="tile-action tile-action--danger tile-action--muted"
                       data-action="queue-remove"
                       data-qid=${row.id}
                       ?disabled=${this._offline}

@@ -48,8 +48,6 @@ async def _async_register_lovelace_module(hass: HomeAssistant) -> None:
     for item in resources.async_items():
         url = str(item.get("url", ""))
         if CARD_PATH in url:
-            if url != CARD_MODULE_URL:
-                await resources.async_update_item(item["id"], {"url": CARD_MODULE_URL})
             return
     await resources.async_create_item({"res_type": "module", "url": CARD_MODULE_URL})
 

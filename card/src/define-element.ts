@@ -1,8 +1,18 @@
-/** Register a custom element once. Lovelace loads this module from two URLs. */
+/** Register a custom element once. Lovelace may import this module more than once. */
 export function defineElement(
   name: string,
   ctor: CustomElementConstructor,
 ): void {
   if (customElements.get(name)) return;
-  customElements.define(name, ctor);
+  try {
+    customElements.define(name, ctor);
+  } catch (err) {
+    if (
+      err instanceof DOMException &&
+      (err.name === "NotSupportedError" || err.name === "NotAllowedError")
+    ) {
+      return;
+    }
+    throw err;
+  }
 }
