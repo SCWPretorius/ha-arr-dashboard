@@ -37,11 +37,7 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          ignore: |
-            brands
-            topics
-            license
-            description
+          ignore: brands topics license description
 
   card:
     runs-on: ubuntu-latest
