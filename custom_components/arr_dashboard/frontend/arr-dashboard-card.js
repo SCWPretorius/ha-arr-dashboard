@@ -1444,6 +1444,13 @@ const cardStyles = i$3 `
     overflow: hidden;
   }
 
+  .library-load-sentinel {
+    width: 100%;
+    height: 1px;
+    flex: 0 0 auto;
+    pointer-events: none;
+  }
+
   .library-scroll arr-virtual-list.library-virtual {
     display: block;
     width: 100%;
@@ -2413,6 +2420,7 @@ class ArrDashboardCard extends i {
             clearTimeout(this._lookupTimer);
         if (this._librarySearchTimer)
             clearTimeout(this._librarySearchTimer);
+        this._teardownLibrarySentinel();
         if (this._onVisibility) {
             document.removeEventListener("visibilitychange", this._onVisibility);
         }
@@ -2422,6 +2430,15 @@ class ArrDashboardCard extends i {
             this._tab !== "library" &&
             (this._selectedMovie || this._manualMovieId)) {
             this._closeMovieDetail();
+        }
+        if (this._tab === "library" &&
+            (changed.has("_libraryItems") ||
+                changed.has("_libraryTotal") ||
+                changed.has("_tab"))) {
+            void this.updateComplete.then(() => this._setupLibrarySentinel());
+        }
+        else if (changed.has("_tab") && this._tab !== "library") {
+            this._teardownLibrarySentinel();
         }
     }
     async _bootstrap() {
@@ -2648,6 +2665,27 @@ class ArrDashboardCard extends i {
         if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) {
             void this._loadMoreLibrary();
         }
+    }
+    _teardownLibrarySentinel() {
+        this._librarySentinelIo?.disconnect();
+        this._librarySentinelIo = undefined;
+    }
+    /** Load more when the list grows with the card (masonry / sections views). */
+    _setupLibrarySentinel() {
+        this._teardownLibrarySentinel();
+        if (this._tab !== "library" || this._libraryItems.length >= this._libraryTotal) {
+            return;
+        }
+        const sentinel = this.renderRoot.querySelector("[data-library-sentinel]");
+        if (!sentinel || typeof IntersectionObserver === "undefined") {
+            return;
+        }
+        this._librarySentinelIo = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+                void this._loadMoreLibrary();
+            }
+        }, { root: null, rootMargin: "320px" });
+        this._librarySentinelIo.observe(sentinel);
     }
     async _loadAddUpcoming() {
         if (!this._entryId)
@@ -3056,6 +3094,9 @@ class ArrDashboardCard extends i {
                 ></arr-virtual-list>
               `
             : b `<p>No movies match your filters.</p>`}
+          ${this._libraryItems.length < this._libraryTotal
+            ? b `<div data-library-sentinel class="library-load-sentinel"></div>`
+            : A}
           ${this._libraryLoadingMore
             ? b `<p class="hint-muted">Loading more…</p>`
             : A}

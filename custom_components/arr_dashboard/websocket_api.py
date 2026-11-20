@@ -12,6 +12,11 @@ from homeassistant.core import HomeAssistant, callback
 from .const import EVENT_MOVIE_ADDED, WS_TYPE_ARR_DASHBOARD
 from .core.client import ArrNotFound
 from .core.events import movie_event_base
+from .core.schemas import (
+    LIBRARY_MATCH_SCHEMA,
+    LIBRARY_PAGE_SCHEMA,
+    LIBRARY_UPCOMING_SCHEMA,
+)
 from .helpers import get_coordinator_for_entry, get_radarr_client
 from .library_logic import (
     library_match,
@@ -120,36 +125,34 @@ async def _handle_command(
             }
         case "library_page":
             cd = coordinator.data
-            sort = str(data.get("sort", "title"))
-            search = str(data.get("search", ""))
-            offset = int(data.get("offset", 0))
-            limit = int(data.get("limit", 48))
+            page_data = LIBRARY_PAGE_SCHEMA(data)
             total, items = library_page_slice(
                 cd.movies,
-                offset=offset,
-                limit=limit,
-                sort=sort,
-                search=search,
+                offset=page_data["offset"],
+                limit=page_data["limit"],
+                sort=page_data["sort"],
+                search=page_data["search"],
             )
             return {
                 "total": total,
                 "revision": library_revision(cd),
-                "offset": offset,
+                "offset": page_data["offset"],
                 "items": items,
             }
         case "library_match":
             cd = coordinator.data
+            match_data = LIBRARY_MATCH_SCHEMA(data)
             movie = library_match(
                 cd.movies,
-                tmdb_id=data.get("tmdbId"),
-                title=data.get("title"),
-                year=data.get("year"),
+                tmdb_id=match_data.get("tmdbId"),
+                title=match_data.get("title"),
+                year=match_data.get("year"),
             )
             return {"movie": movie}
         case "library_upcoming":
             cd = coordinator.data
-            days = int(data.get("days", 14))
-            items = library_upcoming(cd.movies, days)
+            upcoming_data = LIBRARY_UPCOMING_SCHEMA(data)
+            items = library_upcoming(cd.movies, upcoming_data["days"])
             return {"items": items, "revision": library_revision(cd)}
         case "lookup":
             return {"results": await client.lookup(data["term"])}
