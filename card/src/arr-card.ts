@@ -1,13 +1,12 @@
 import { LitElement, html, nothing } from "lit";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
+import { defineElement } from "./define-element";
 import { renderConfirmDialog } from "./confirm-dialog";
 import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
 import {
   filterMovies,
   inLibrary,
-  indexLetters,
-  recentMovies,
   sortMovies,
   upcomingMovies,
   type LibraryChip,
@@ -64,8 +63,6 @@ import {
 
 const LOOKUP_DEBOUNCE_MS = 400;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
-const VIRTUAL_THRESHOLD = 50;
-
 function queueNeedsAttention(item: QueueItem): boolean {
   const st = (item.status || "").toLowerCase();
   const tr = (item.trackedDownloadStatus || "").toLowerCase();
@@ -78,7 +75,6 @@ function queueNeedsAttention(item: QueueItem): boolean {
   );
 }
 
-@customElement("arr-card")
 export class ArrDashboardCard extends LitElement {
   static styles = cardStyles;
 
@@ -111,6 +107,7 @@ export class ArrDashboardCard extends LitElement {
   @state() private _librarySort: LibrarySort = "title";
   @state() private _libraryView: "grid" | "list" = "grid";
   @state() private _compact = false;
+  @state() private _hostWidth = 0;
   @state() private _statusOpen = false;
   @state() private _failureDetail = "";
   @state() private _qualityOpen = false;
@@ -181,6 +178,8 @@ export class ArrDashboardCard extends LitElement {
       const compactCfg = this.config?.compact ?? "auto";
       this._compact =
         compactCfg === true || (compactCfg === "auto" && w < 340);
+      const next = Math.round(w);
+      if (next !== this._hostWidth) this._hostWidth = next;
     });
     this._ro.observe(this);
   }
@@ -297,11 +296,9 @@ export class ArrDashboardCard extends LitElement {
     return this._failCount >= 3 || this._state?.reachable === false;
   }
 
-  private get _gridColumns(): number {
-    if (this._libraryView === "list") return 1;
-    if (this._compact) return 2;
-    if (this._layoutTablet) return 4;
-    return 3;
+  private get _posterColumns(): number {
+    const width = this._hostWidth || 900;
+    return Math.max(2, Math.min(6, Math.floor(width / 170)));
   }
 
   private get _layoutTablet(): boolean {
@@ -715,26 +712,10 @@ export class ArrDashboardCard extends LitElement {
     if (this._loading) {
       return html`<div data-screen="L04" class="skeleton-block"></div>`;
     }
-    const cfg = this.config;
     const movies = this._sortedLibrary();
-    const showRows = cfg.show_rows ?? [];
-    const up = showRows.includes("upcoming")
-      ? upcomingMovies(this._state?.movies ?? [], cfg.upcoming_days ?? 14)
-      : [];
-    const rec = showRows.includes("recent")
-      ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
-      : [];
-    const cols = this._gridColumns;
-    const useVirtual = movies.length > VIRTUAL_THRESHOLD;
-    const virtualRows =
-      cols > 1 ? Math.ceil(movies.length / cols) : movies.length;
-    const letters =
-      this._librarySort === "title" && this._layoutTablet
-        ? indexLetters(movies)
-        : [];
 
     return html`
-      <div data-screen="L01">
+      <div data-screen="L01" class="library-pane">
         <input
           class="search-field"
           placeholder="Search your library"
@@ -787,63 +768,15 @@ export class ArrDashboardCard extends LitElement {
           </button>
         </div>
 
-        ${up.length
-          ? html`
-              <section data-screen="L02" class="row-section">
-                <h3>Coming soon</h3>
-                <div class="h-scroll">
-                  ${up.map((m) => this._libraryTile(m))}
-                </div>
-              </section>
-            `
-          : nothing}
-        ${rec.length
-          ? html`
-              <section data-screen="L03" class="row-section">
-                <h3>Recently added</h3>
-                <div class="h-scroll">
-                  ${rec.map((m) => this._libraryTile(m))}
-                </div>
-              </section>
-            `
-          : nothing}
-
-        <div class="library-with-rail">
-          ${useVirtual
-            ? html`
-                <arr-virtual-list
-                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
-                  .itemCount=${virtualRows}
-                  .columns=${cols}
-                  .itemHeight=${this._libraryView === "list" ? 64 : 160}
-                  rowClass=${this._libraryView === "grid" ? "grid" : "list-view"}
-                  .renderItem=${(i: number) => this._libraryItem(movies[i])}
-                  .renderRow=${(start: number, count: number) =>
-                    Array.from({ length: count }, (_, j) =>
-                      this._libraryItem(movies[start + j]),
-                    )}
-                ></arr-virtual-list>
-              `
-            : html`
-                <div
-                  data-screen="L05"
-                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
-                  role="list"
-                >
-                  ${movies.map((m) => this._libraryItem(m))}
-                </div>
-              `}
-          ${letters.length
-            ? html`
-                <div class="az-rail" data-screen="L01T" aria-hidden="true">
-                  ${letters.map(
-                    (L) => html`
-                      <span class="az-letter">${L}</span>
-                    `,
-                  )}
-                </div>
-              `
-            : nothing}
+        <div class="library-scroll">
+          <div
+            data-screen="L05"
+            class="${this._libraryView === "grid" ? "poster-grid" : "list-view"}"
+            style="--arr-cols: ${this._libraryView === "grid" ? this._posterColumns : 1}"
+            role="list"
+          >
+            ${movies.map((m) => this._libraryItem(m))}
+          </div>
         </div>
         ${!movies.length
           ? html`<p>No movies match your filters.</p>`
@@ -859,7 +792,7 @@ export class ArrDashboardCard extends LitElement {
         @click=${() => void this._openMovieDetail(m)}
       >
         <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-        <span>${m.title}</span>
+        <span class="poster-caption">${m.title}</span>
       </button>
     `;
   }
@@ -888,7 +821,7 @@ export class ArrDashboardCard extends LitElement {
         @click=${() => void this._openMovieDetail(m)}
       >
         <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-        <div>${m.title} (${m.year})</div>
+        <div class="poster-caption">${m.title} (${m.year})</div>
       </button>
     `;
   }
@@ -1660,6 +1593,12 @@ export class ArrDashboardCard extends LitElement {
   }
 }
 
+defineElement("arr-card", ArrDashboardCard);
+
+class ArrMoviesCard extends ArrDashboardCard {}
+
+defineElement("arr-movies-card", ArrMoviesCard);
+
 declare global {
   interface HTMLElementTagNameMap {
     "arr-card": ArrDashboardCard;
@@ -1671,7 +1610,7 @@ import "./editor";
 (window as unknown as { customCards?: unknown[] }).customCards =
   (window as unknown as { customCards?: unknown[] }).customCards ?? [];
 (window as unknown as { customCards: unknown[] }).customCards.push({
-  type: "custom:arr-card",
+  type: "custom:arr-movies-card",
   name: "Arr Dashboard",
   description: "Radarr library, queue, and add card",
   preview: true,

@@ -1,10 +1,10 @@
 import { html, LitElement } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
+import { defineElement } from "./define-element";
 
 /**
  * Virtual scroller that renders into light DOM so parent card styles apply.
  */
-@customElement("arr-virtual-list")
 export class ArrVirtualList extends LitElement {
   @property({ type: Number }) itemHeight = 72;
   @property({ type: Number }) itemCount = 0;
@@ -97,6 +97,8 @@ export class ArrVirtualList extends LitElement {
     `;
   }
 }
+
+defineElement("arr-virtual-list", ArrVirtualList);
 
 declare global {
   interface HTMLElementTagNameMap {

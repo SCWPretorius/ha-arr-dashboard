@@ -212,8 +212,8 @@ describe("arr-card status sheet G02", () => {
   });
 });
 
-describe("arr-card virtual list", () => {
-  it("uses arr-virtual-list when library has many movies", async () => {
+describe("arr-card library grid", () => {
+  it("shows a scrollable poster grid and no recently added row", async () => {
     const el = document.createElement("arr-card") as ArrDashboardCard;
     el.hass = mockHass as never;
     el.setConfig({
@@ -222,13 +222,17 @@ describe("arr-card virtual list", () => {
       default_tab: "library",
       layout: "tablet",
       compact: false,
+      show_rows: ["upcoming", "recent"],
     });
     document.body.appendChild(el);
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 80));
     await el.updateComplete;
-    const list = el.shadowRoot?.querySelector("arr-virtual-list");
-    expect(list).to.exist;
+    const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
+    expect(grid).to.exist;
+    expect(grid?.querySelectorAll(".poster-btn").length).to.be.greaterThan(1);
+    expect(el.shadowRoot?.textContent).not.to.contain("Recently added");
+    expect(el.shadowRoot?.querySelector("arr-virtual-list")).to.equal(null);
   });
 
   it("keeps grid row layout for 300 movies", async () => {
@@ -264,10 +268,9 @@ describe("arr-card virtual list", () => {
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 120));
     await el.updateComplete;
-    const list = el.shadowRoot?.querySelector("arr-virtual-list.grid");
-    expect(list).to.exist;
-    const gridRow = list?.querySelector(".grid .poster-btn");
-    expect(gridRow).to.exist;
+    const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
+    expect(grid).to.exist;
+    expect(grid?.querySelectorAll(".poster-btn").length).to.equal(300);
   });
 });
 

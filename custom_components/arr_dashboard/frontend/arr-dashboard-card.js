@@ -32,7 +32,7 @@ typeof SuppressedError === "function" ? SuppressedError : function (error, suppr
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$5=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$5.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$5.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+const t$1=globalThis,e$2=t$1.ShadowRoot&&(void 0===t$1.ShadyCSS||t$1.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$5=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$5.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$5.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$1.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
 
 /**
  * @license
@@ -45,7 +45,7 @@ const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.na
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$1=globalThis,i$1=t=>t,s$1=t$1.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$3=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$3,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$3+x):s+o$3+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$3),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$3)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$3),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$3,t+1));)d.push({type:7,index:l}),t+=o$3.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$1.litHtmlPolyfillSupport;B?.(S,k),(t$1.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$3=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$3,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$3+x):s+o$3+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$3),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$3)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$3),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$3,t+1));)d.push({type:7,index:l}),t+=o$3.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t.litHtmlPolyfillSupport;B?.(S,k),(t.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
 
 /**
  * @license
@@ -63,13 +63,6 @@ const t$1=globalThis,i$1=t=>t,s$1=t$1.trustedTypes,e=s$1?s$1.createPolicy("lit-h
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */
-const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);}):customElements.define(t,e);};
-
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
  */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t,true,r);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t,true,r);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
 
 /**
@@ -77,6 +70,13 @@ const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */function r(r){return n({...r,state:true,attribute:false})}
+
+/** Register a custom element once. Lovelace loads this module from two URLs. */
+function defineElement(name, ctor) {
+    if (customElements.get(name))
+        return;
+    customElements.define(name, ctor);
+}
 
 function formatSize(bytes) {
     if (!bytes)
@@ -387,28 +387,6 @@ function upcomingMovies(movies, _days) {
         const st = (m.status ?? "").toLowerCase();
         return st === "incinemas" || st === "announced" || st === "in cinemas";
     }).slice(0, 12);
-}
-function recentMovies(movies, days) {
-    const since = Date.now() - days * 86400000;
-    return movies
-        .filter((m) => {
-        if (!m.added)
-            return false;
-        return new Date(m.added).getTime() >= since;
-    })
-        .sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""))
-        .slice(0, 12);
-}
-function indexLetters(movies) {
-    const letters = new Set();
-    for (const m of movies) {
-        const ch = (m.title ?? "?")[0]?.toUpperCase();
-        if (ch && /[A-Z]/.test(ch))
-            letters.add(ch);
-        else
-            letters.add("#");
-    }
-    return [...letters].sort();
 }
 
 const EXIT_MS = 200;
@@ -806,7 +784,11 @@ const FAILURE_VERBS = {
 
 const cardStyles = i$3 `
   :host {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     --arr-accent-text: color-mix(
       in srgb,
       var(--primary-color) 70%,
@@ -837,8 +819,17 @@ const cardStyles = i$3 `
   }
 
   ha-card {
-    padding: 16px;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 8px 4px 16px;
     overflow: hidden;
+    background: #141414;
+    color: #e5e5e5;
+    border: none;
+    box-shadow: none;
   }
 
   .header {
@@ -846,15 +837,18 @@ const cardStyles = i$3 `
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
+    padding: 0 12px;
   }
 
   .title-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 1.25rem;
-    font-weight: 500;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
   }
 
   .chips {
@@ -869,11 +863,12 @@ const cardStyles = i$3 `
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    border-radius: 16px;
-    background: var(--card-background-color);
-    border: 1px solid var(--divider-color);
-    font-size: 0.85rem;
-    min-height: 32px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: #e5e5e5;
+    font-size: 0.78rem;
+    min-height: 28px;
     cursor: default;
   }
 
@@ -884,24 +879,25 @@ const cardStyles = i$3 `
   .tabs {
     display: flex;
     gap: 4px;
-    border-bottom: 1px solid var(--divider-color);
-    margin-bottom: 12px;
+    margin: 0 12px 8px;
+    border-bottom: none;
   }
 
   .tab {
-    padding: 12px 16px;
+    padding: 8px 14px;
     border: none;
     background: transparent;
-    color: var(--secondary-text-color);
+    color: #b3b3b3;
     cursor: pointer;
-    border-bottom: 3px solid transparent;
+    border-radius: 4px;
     font: inherit;
-    min-height: 48px;
+    font-weight: 600;
+    min-height: 36px;
   }
 
   .tab[aria-selected="true"] {
-    color: var(--arr-accent-text);
-    border-bottom-color: var(--primary-color);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
   }
 
   .badge {
@@ -996,29 +992,61 @@ const cardStyles = i$3 `
   .arr-virtual-host {
     display: block;
     overflow: auto;
-    max-height: var(--arr-virtual-height, 520px);
+    width: 100%;
+    max-height: var(--arr-virtual-height, 70vh);
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px 8px;
+    width: 100%;
+    min-width: 0;
   }
 
   .poster-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
     border: none;
     padding: 0;
     background: transparent;
+    color: var(--primary-text-color);
     cursor: pointer;
     text-align: left;
+    font: inherit;
   }
 
   .poster-btn img {
+    display: block;
     width: 100%;
-    aspect-ratio: 2/3;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 3;
     object-fit: cover;
     border-radius: 4px;
-    background: var(--divider-color);
+    background: #2a2a2a;
+    transition: transform 160ms ease, filter 160ms ease;
+  }
+
+  .poster-btn:hover img,
+  .poster-btn:focus-visible img {
+    transform: scale(1.04);
+    filter: brightness(1.08);
+  }
+
+  .poster-caption {
+    display: block;
+    overflow: hidden;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #d2d2d2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .queue-row {
@@ -1132,23 +1160,27 @@ const cardStyles = i$3 `
   }
 
   .search-field {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--divider-color);
+    width: calc(100% - 24px);
+    padding: 8px 12px;
+    border: none;
     border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
     font: inherit;
-    margin-bottom: 12px;
+    font-size: 0.9rem;
+    margin: 4px 12px 8px;
     box-sizing: border-box;
   }
 
-  .layout-tablet .tab {
-    min-height: 60px;
-    font-size: 17px;
+  .search-field::placeholder {
+    color: #8c8c8c;
   }
 
-  .layout-tablet button {
-    min-height: 56px;
-    font-size: 17px;
+  .layout-tablet button.primary,
+  .layout-tablet button.danger,
+  .layout-tablet button.outline-danger {
+    min-height: 48px;
+    font-size: 1rem;
   }
 
   .compact .chips .chip:not(.health) {
@@ -1186,12 +1218,51 @@ const cardStyles = i$3 `
 
   .layout-body {
     display: flex;
+    flex: 1;
     gap: 16px;
-    align-items: flex-start;
+    align-items: stretch;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .main-pane {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .library-pane {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .library-scroll {
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+  }
+
+  .poster-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 16px 10px;
+    padding: 4px 12px 32px;
+  }
+
+  .poster-grid .poster-btn {
+    width: 100%;
     min-width: 0;
   }
 
@@ -1265,30 +1336,38 @@ const cardStyles = i$3 `
   .chip-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin: 0 12px 4px;
     align-items: center;
   }
 
   .filter-chip {
-    border: 1px solid var(--divider-color);
-    background: var(--card-background-color);
-    border-radius: 16px;
-    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: #b3b3b3;
+    border-radius: 999px;
+    padding: 4px 12px;
     cursor: pointer;
     font: inherit;
-    min-height: 36px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: 32px;
   }
 
   .filter-chip.active {
-    border-color: var(--primary-color);
-    color: var(--arr-accent-text);
+    background: #fff;
+    color: #141414;
   }
 
   .sort-select {
     margin-left: auto;
-    padding: 6px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e5e5;
     font: inherit;
+    font-size: 0.85rem;
   }
 
   .list-view {
@@ -1322,34 +1401,79 @@ const cardStyles = i$3 `
     border-radius: 4px;
   }
 
-  .poster-btn.small img {
-    width: 80px;
+  .poster-btn.small {
+    flex: 0 0 148px;
+    width: 148px;
+    scroll-snap-align: start;
   }
 
   .h-scroll {
     display: flex;
     gap: 8px;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
-    padding-bottom: 8px;
+    overflow-y: hidden;
+    padding: 4px 48px 12px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 56px), transparent);
   }
 
-  .row-section h3 {
-    margin: 8px 0;
-    font-size: 1rem;
+  .h-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .row-section {
+    min-width: 0;
+    margin-bottom: 6px;
+  }
+
+  .row-section h3,
+  .library-heading {
+    margin: 14px 12px 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
   }
 
   .library-with-rail {
     display: flex;
     gap: 8px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .library-with-rail > .grid,
+  .library-with-rail > .list-view,
+  .library-with-rail > arr-virtual-list {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  arr-virtual-list.grid {
+    display: block;
+  }
+
+  .vrow {
+    display: grid;
+    grid-template-columns: repeat(var(--arr-cols, 6), minmax(0, 1fr));
+    column-gap: 8px;
+    width: 100%;
+    height: var(--arr-row-h, 240px);
+    box-sizing: border-box;
+    padding: 0 12px 10px;
+    align-items: start;
+  }
+
+  .vrow .poster-caption {
+    display: none;
   }
 
   .az-rail {
-    display: flex;
-    flex-direction: column;
-    font-size: 0.7rem;
-    color: var(--secondary-text-color);
-    padding: 4px;
-    user-select: none;
+    display: none;
   }
 
   .skeleton-block,
@@ -1519,7 +1643,7 @@ function showActionFailure(el, command, err) {
 /**
  * Virtual scroller that renders into light DOM so parent card styles apply.
  */
-let ArrVirtualList = class ArrVirtualList extends i {
+class ArrVirtualList extends i {
     constructor() {
         super(...arguments);
         this.itemHeight = 72;
@@ -1589,7 +1713,7 @@ let ArrVirtualList = class ArrVirtualList extends i {
       </div>
     `;
     }
-};
+}
 __decorate([
     n({ type: Number })
 ], ArrVirtualList.prototype, "itemHeight", void 0);
@@ -1614,9 +1738,7 @@ __decorate([
 __decorate([
     r()
 ], ArrVirtualList.prototype, "_height", void 0);
-ArrVirtualList = __decorate([
-    t("arr-virtual-list")
-], ArrVirtualList);
+defineElement("arr-virtual-list", ArrVirtualList);
 
 const posterSignCache = new Map();
 async function signPosterPath(hass, path) {
@@ -1658,7 +1780,7 @@ async function resolveEntryId(hass, instance) {
     return match.entry_id;
 }
 
-let ArrCardEditor = class ArrCardEditor extends i {
+class ArrCardEditor extends i {
     constructor() {
         super(...arguments);
         this._config = {};
@@ -1949,20 +2071,17 @@ let ArrCardEditor = class ArrCardEditor extends i {
       </div>
     `;
     }
-};
+}
 __decorate([
     n({ attribute: false })
 ], ArrCardEditor.prototype, "lovelace", void 0);
 __decorate([
     r()
 ], ArrCardEditor.prototype, "_config", void 0);
-ArrCardEditor = __decorate([
-    t("arr-card-editor")
-], ArrCardEditor);
+defineElement("arr-card-editor", ArrCardEditor);
 
 const LOOKUP_DEBOUNCE_MS = 400;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
-const VIRTUAL_THRESHOLD = 50;
 function queueNeedsAttention(item) {
     const st = (item.status || "").toLowerCase();
     const tr = (item.trackedDownloadStatus || "").toLowerCase();
@@ -1972,7 +2091,7 @@ function queueNeedsAttention(item) {
         tr.includes("importblocked") ||
         st === "warning");
 }
-let ArrDashboardCard = class ArrDashboardCard extends i {
+class ArrDashboardCard extends i {
     constructor() {
         super(...arguments);
         this._tab = "library";
@@ -1993,6 +2112,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         this._librarySort = "title";
         this._libraryView = "grid";
         this._compact = false;
+        this._hostWidth = 0;
         this._statusOpen = false;
         this._failureDetail = "";
         this._qualityOpen = false;
@@ -2053,6 +2173,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
             const compactCfg = this.config?.compact ?? "auto";
             this._compact =
                 compactCfg === true || (compactCfg === "auto" && w < 340);
+            const next = Math.round(w);
+            if (next !== this._hostWidth)
+                this._hostWidth = next;
         });
         this._ro.observe(this);
     }
@@ -2161,14 +2284,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     get _offline() {
         return this._failCount >= 3 || this._state?.reachable === false;
     }
-    get _gridColumns() {
-        if (this._libraryView === "list")
-            return 1;
-        if (this._compact)
-            return 2;
-        if (this._layoutTablet)
-            return 4;
-        return 3;
+    get _posterColumns() {
+        const width = this._hostWidth || 900;
+        return Math.max(2, Math.min(6, Math.floor(width / 170)));
     }
     get _layoutTablet() {
         const cfg = this.config ?? {};
@@ -2491,23 +2609,9 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         if (this._loading) {
             return b `<div data-screen="L04" class="skeleton-block"></div>`;
         }
-        const cfg = this.config;
         const movies = this._sortedLibrary();
-        const showRows = cfg.show_rows ?? [];
-        const up = showRows.includes("upcoming")
-            ? upcomingMovies(this._state?.movies ?? [], cfg.upcoming_days ?? 14)
-            : [];
-        const rec = showRows.includes("recent")
-            ? recentMovies(this._state?.movies ?? [], cfg.recent_days ?? 7)
-            : [];
-        const cols = this._gridColumns;
-        const useVirtual = movies.length > VIRTUAL_THRESHOLD;
-        const virtualRows = cols > 1 ? Math.ceil(movies.length / cols) : movies.length;
-        const letters = this._librarySort === "title" && this._layoutTablet
-            ? indexLetters(movies)
-            : [];
         return b `
-      <div data-screen="L01">
+      <div data-screen="L01" class="library-pane">
         <input
           class="search-field"
           placeholder="Search your library"
@@ -2555,58 +2659,15 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
           </button>
         </div>
 
-        ${up.length
-            ? b `
-              <section data-screen="L02" class="row-section">
-                <h3>Coming soon</h3>
-                <div class="h-scroll">
-                  ${up.map((m) => this._libraryTile(m))}
-                </div>
-              </section>
-            `
-            : A}
-        ${rec.length
-            ? b `
-              <section data-screen="L03" class="row-section">
-                <h3>Recently added</h3>
-                <div class="h-scroll">
-                  ${rec.map((m) => this._libraryTile(m))}
-                </div>
-              </section>
-            `
-            : A}
-
-        <div class="library-with-rail">
-          ${useVirtual
-            ? b `
-                <arr-virtual-list
-                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
-                  .itemCount=${virtualRows}
-                  .columns=${cols}
-                  .itemHeight=${this._libraryView === "list" ? 64 : 160}
-                  rowClass=${this._libraryView === "grid" ? "grid" : "list-view"}
-                  .renderItem=${(i) => this._libraryItem(movies[i])}
-                  .renderRow=${(start, count) => Array.from({ length: count }, (_, j) => this._libraryItem(movies[start + j]))}
-                ></arr-virtual-list>
-              `
-            : b `
-                <div
-                  data-screen="L05"
-                  class="${this._libraryView === "grid" ? "grid" : "list-view"}"
-                  role="list"
-                >
-                  ${movies.map((m) => this._libraryItem(m))}
-                </div>
-              `}
-          ${letters.length
-            ? b `
-                <div class="az-rail" data-screen="L01T" aria-hidden="true">
-                  ${letters.map((L) => b `
-                      <span class="az-letter">${L}</span>
-                    `)}
-                </div>
-              `
-            : A}
+        <div class="library-scroll">
+          <div
+            data-screen="L05"
+            class="${this._libraryView === "grid" ? "poster-grid" : "list-view"}"
+            style="--arr-cols: ${this._libraryView === "grid" ? this._posterColumns : 1}"
+            role="list"
+          >
+            ${movies.map((m) => this._libraryItem(m))}
+          </div>
         </div>
         ${!movies.length
             ? b `<p>No movies match your filters.</p>`
@@ -2621,7 +2682,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         @click=${() => void this._openMovieDetail(m)}
       >
         <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-        <span>${m.title}</span>
+        <span class="poster-caption">${m.title}</span>
       </button>
     `;
     }
@@ -2649,7 +2710,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
         @click=${() => void this._openMovieDetail(m)}
       >
         <img src=${m.posterUrl ?? ""} alt="" loading="lazy" />
-        <div>${m.title} (${m.year})</div>
+        <div class="poster-caption">${m.title} (${m.year})</div>
       </button>
     `;
     }
@@ -3359,7 +3420,7 @@ let ArrDashboardCard = class ArrDashboardCard extends i {
     getCardSize() {
         return this._compact ? 4 : 8;
     }
-};
+}
 ArrDashboardCard.styles = cardStyles;
 __decorate([
     n({ attribute: false })
@@ -3447,6 +3508,9 @@ __decorate([
 ], ArrDashboardCard.prototype, "_compact", void 0);
 __decorate([
     r()
+], ArrDashboardCard.prototype, "_hostWidth", void 0);
+__decorate([
+    r()
 ], ArrDashboardCard.prototype, "_statusOpen", void 0);
 __decorate([
     r()
@@ -3493,13 +3557,14 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_grabOkScreen", void 0);
-ArrDashboardCard = __decorate([
-    t("arr-card")
-], ArrDashboardCard);
+defineElement("arr-card", ArrDashboardCard);
+class ArrMoviesCard extends ArrDashboardCard {
+}
+defineElement("arr-movies-card", ArrMoviesCard);
 window.customCards =
     window.customCards ?? [];
 window.customCards.push({
-    type: "custom:arr-card",
+    type: "custom:arr-movies-card",
     name: "Arr Dashboard",
     description: "Radarr library, queue, and add card",
     preview: true,

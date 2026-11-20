@@ -2,7 +2,11 @@ import { css } from "lit";
 
 export const cardStyles = css`
   :host {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     --arr-accent-text: color-mix(
       in srgb,
       var(--primary-color) 70%,
@@ -33,8 +37,17 @@ export const cardStyles = css`
   }
 
   ha-card {
-    padding: 16px;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 8px 4px 16px;
     overflow: hidden;
+    background: #141414;
+    color: #e5e5e5;
+    border: none;
+    box-shadow: none;
   }
 
   .header {
@@ -42,15 +55,18 @@ export const cardStyles = css`
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
+    padding: 0 12px;
   }
 
   .title-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 1.25rem;
-    font-weight: 500;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
   }
 
   .chips {
@@ -65,11 +81,12 @@ export const cardStyles = css`
     align-items: center;
     gap: 4px;
     padding: 4px 10px;
-    border-radius: 16px;
-    background: var(--card-background-color);
-    border: 1px solid var(--divider-color);
-    font-size: 0.85rem;
-    min-height: 32px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: #e5e5e5;
+    font-size: 0.78rem;
+    min-height: 28px;
     cursor: default;
   }
 
@@ -80,24 +97,25 @@ export const cardStyles = css`
   .tabs {
     display: flex;
     gap: 4px;
-    border-bottom: 1px solid var(--divider-color);
-    margin-bottom: 12px;
+    margin: 0 12px 8px;
+    border-bottom: none;
   }
 
   .tab {
-    padding: 12px 16px;
+    padding: 8px 14px;
     border: none;
     background: transparent;
-    color: var(--secondary-text-color);
+    color: #b3b3b3;
     cursor: pointer;
-    border-bottom: 3px solid transparent;
+    border-radius: 4px;
     font: inherit;
-    min-height: 48px;
+    font-weight: 600;
+    min-height: 36px;
   }
 
   .tab[aria-selected="true"] {
-    color: var(--arr-accent-text);
-    border-bottom-color: var(--primary-color);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
   }
 
   .badge {
@@ -192,29 +210,61 @@ export const cardStyles = css`
   .arr-virtual-host {
     display: block;
     overflow: auto;
-    max-height: var(--arr-virtual-height, 520px);
+    width: 100%;
+    max-height: var(--arr-virtual-height, 70vh);
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px 8px;
+    width: 100%;
+    min-width: 0;
   }
 
   .poster-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
     border: none;
     padding: 0;
     background: transparent;
+    color: var(--primary-text-color);
     cursor: pointer;
     text-align: left;
+    font: inherit;
   }
 
   .poster-btn img {
+    display: block;
     width: 100%;
-    aspect-ratio: 2/3;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 3;
     object-fit: cover;
     border-radius: 4px;
-    background: var(--divider-color);
+    background: #2a2a2a;
+    transition: transform 160ms ease, filter 160ms ease;
+  }
+
+  .poster-btn:hover img,
+  .poster-btn:focus-visible img {
+    transform: scale(1.04);
+    filter: brightness(1.08);
+  }
+
+  .poster-caption {
+    display: block;
+    overflow: hidden;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #d2d2d2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .queue-row {
@@ -328,23 +378,27 @@ export const cardStyles = css`
   }
 
   .search-field {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--divider-color);
+    width: calc(100% - 24px);
+    padding: 8px 12px;
+    border: none;
     border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
     font: inherit;
-    margin-bottom: 12px;
+    font-size: 0.9rem;
+    margin: 4px 12px 8px;
     box-sizing: border-box;
   }
 
-  .layout-tablet .tab {
-    min-height: 60px;
-    font-size: 17px;
+  .search-field::placeholder {
+    color: #8c8c8c;
   }
 
-  .layout-tablet button {
-    min-height: 56px;
-    font-size: 17px;
+  .layout-tablet button.primary,
+  .layout-tablet button.danger,
+  .layout-tablet button.outline-danger {
+    min-height: 48px;
+    font-size: 1rem;
   }
 
   .compact .chips .chip:not(.health) {
@@ -382,12 +436,51 @@ export const cardStyles = css`
 
   .layout-body {
     display: flex;
+    flex: 1;
     gap: 16px;
-    align-items: flex-start;
+    align-items: stretch;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .main-pane {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .library-pane {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .library-scroll {
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+  }
+
+  .poster-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 16px 10px;
+    padding: 4px 12px 32px;
+  }
+
+  .poster-grid .poster-btn {
+    width: 100%;
     min-width: 0;
   }
 
@@ -461,30 +554,38 @@ export const cardStyles = css`
   .chip-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin: 0 12px 4px;
     align-items: center;
   }
 
   .filter-chip {
-    border: 1px solid var(--divider-color);
-    background: var(--card-background-color);
-    border-radius: 16px;
-    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: #b3b3b3;
+    border-radius: 999px;
+    padding: 4px 12px;
     cursor: pointer;
     font: inherit;
-    min-height: 36px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: 32px;
   }
 
   .filter-chip.active {
-    border-color: var(--primary-color);
-    color: var(--arr-accent-text);
+    background: #fff;
+    color: #141414;
   }
 
   .sort-select {
     margin-left: auto;
-    padding: 6px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e5e5;
     font: inherit;
+    font-size: 0.85rem;
   }
 
   .list-view {
@@ -518,34 +619,79 @@ export const cardStyles = css`
     border-radius: 4px;
   }
 
-  .poster-btn.small img {
-    width: 80px;
+  .poster-btn.small {
+    flex: 0 0 148px;
+    width: 148px;
+    scroll-snap-align: start;
   }
 
   .h-scroll {
     display: flex;
     gap: 8px;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
-    padding-bottom: 8px;
+    overflow-y: hidden;
+    padding: 4px 48px 12px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 56px), transparent);
   }
 
-  .row-section h3 {
-    margin: 8px 0;
-    font-size: 1rem;
+  .h-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .row-section {
+    min-width: 0;
+    margin-bottom: 6px;
+  }
+
+  .row-section h3,
+  .library-heading {
+    margin: 14px 12px 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
   }
 
   .library-with-rail {
     display: flex;
     gap: 8px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .library-with-rail > .grid,
+  .library-with-rail > .list-view,
+  .library-with-rail > arr-virtual-list {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  arr-virtual-list.grid {
+    display: block;
+  }
+
+  .vrow {
+    display: grid;
+    grid-template-columns: repeat(var(--arr-cols, 6), minmax(0, 1fr));
+    column-gap: 8px;
+    width: 100%;
+    height: var(--arr-row-h, 240px);
+    box-sizing: border-box;
+    padding: 0 12px 10px;
+    align-items: start;
+  }
+
+  .vrow .poster-caption {
+    display: none;
   }
 
   .az-rail {
-    display: flex;
-    flex-direction: column;
-    font-size: 0.7rem;
-    color: var(--secondary-text-color);
-    padding: 4px;
-    user-select: none;
+    display: none;
   }
 
   .skeleton-block,
