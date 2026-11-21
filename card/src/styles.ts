@@ -59,16 +59,6 @@ export const cardStyles = css`
     padding: 0 12px;
   }
 
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #fff;
-  }
-
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -381,7 +371,7 @@ export const cardStyles = css`
     position: absolute;
     top: 6px;
     right: 6px;
-    z-index: 2;
+    z-index: 3;
     border: none;
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
@@ -393,11 +383,22 @@ export const cardStyles = css`
     cursor: pointer;
   }
 
+  .queue-tile-label {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    padding: 8px 42px 22px 8px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    pointer-events: none;
+  }
+
   .queue-tile-title {
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: #e5e5e5;
+    color: #fff;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -405,9 +406,11 @@ export const cardStyles = css`
   }
 
   .queue-tile-meta {
-    margin: 0;
-    font-size: 0.72rem;
-    color: #9a9a9a;
+    margin: 2px 0 0;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.86);
+    line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -689,6 +692,7 @@ export const cardStyles = css`
   }
 
   .poster-grid .poster-btn {
+    position: relative;
     width: 100%;
     min-width: 0;
   }
@@ -700,6 +704,27 @@ export const cardStyles = css`
 
   .poster-grid .poster-caption {
     display: none;
+  }
+
+  .library-scroll .poster-grid .poster-caption {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: block;
+    margin: 0;
+    padding: 8px 8px 20px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    border-radius: 4px 4px 0 0;
+    pointer-events: none;
   }
 
   .issues-pane {
@@ -734,10 +759,6 @@ export const cardStyles = css`
 
   .compact ha-card {
     padding: 10px;
-  }
-
-  .compact .header .title-row {
-    font-size: 1rem;
   }
 
   .mono {
@@ -858,6 +879,47 @@ export const cardStyles = css`
     flex: 0 0 148px;
     width: 148px;
     scroll-snap-align: start;
+  }
+
+  .add-pane {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .coming-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 16px;
+  }
+
+  .coming-grid .poster-btn.small {
+    position: relative;
+    flex: none;
+    width: 100%;
+  }
+
+  .coming-grid .poster-caption {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: block;
+    margin: 0;
+    padding: 8px 8px 20px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    border-radius: 4px 4px 0 0;
+    pointer-events: none;
   }
 
   .h-scroll {
@@ -988,6 +1050,88 @@ export const cardStyles = css`
 
   .layout-tablet .sheet-panel {
     border-radius: 12px;
+  }
+
+  .detail-popup-backdrop.sheet-backdrop {
+    align-items: center;
+    padding: 16px;
+  }
+
+  .detail-popup.sheet-panel {
+    width: min(440px, 100%);
+    max-height: min(88vh, 760px);
+    overflow: auto;
+    padding: 16px 16px 20px;
+    border-radius: 12px;
+  }
+
+  .detail-popup h2 {
+    margin: 4px 0 12px;
+    font-size: 1.2rem;
+    line-height: 1.25;
+  }
+
+  .detail-popup .detail-poster {
+    float: none;
+    display: block;
+    width: 140px;
+    max-width: 46%;
+    height: auto;
+    margin: 0 0 12px;
+  }
+
+  .detail-popup .detail-actions {
+    flex-direction: column;
+  }
+
+  .detail-popup .detail-actions button,
+  .layout-tablet .detail-popup .detail-actions button.primary {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .queue-menu.sheet-panel {
+    width: max-content;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 14px 14px 12px;
+  }
+
+  .queue-menu h2 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .queue-menu-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .queue-menu-actions button.queue-menu-btn,
+  .layout-tablet .queue-menu-actions button.queue-menu-btn {
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #e5e5e5;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .queue-menu-actions button.queue-menu-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .queue-menu-actions button.text {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.82rem;
   }
 
   .sheet-header {

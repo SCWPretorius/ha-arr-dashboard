@@ -346,6 +346,28 @@ function queueStatusLabel(row) {
     return st;
 }
 
+/** Matches `.library-scroll .poster-grid` padding and gap in styles.ts. */
+const LIBRARY_GRID_PAD_X = 24;
+const LIBRARY_GRID_GAP_X = 8;
+const LIBRARY_GRID_ROW_PAD_Y = 12;
+const LIBRARY_TILE_MIN = 160;
+/**
+ * How many posters fit across the library grid at this card width.
+ * Wider cards add columns; posters stay near the minimum tile width.
+ */
+function libraryPosterColumns(width) {
+    const available = Math.max(0, width - LIBRARY_GRID_PAD_X);
+    const cols = Math.floor((available + LIBRARY_GRID_GAP_X) / (LIBRARY_TILE_MIN + LIBRARY_GRID_GAP_X));
+    return Math.max(2, cols);
+}
+/** Virtual-row height for a 2:3 poster plus the row's vertical padding. */
+function libraryPosterRowHeight(width, columns) {
+    const cols = Math.max(1, columns);
+    const available = Math.max(0, width - LIBRARY_GRID_PAD_X);
+    const tileW = (available - LIBRARY_GRID_GAP_X * Math.max(0, cols - 1)) / cols;
+    return Math.ceil(Math.max(0, tileW) * (3 / 2) + LIBRARY_GRID_ROW_PAD_Y);
+}
+
 /** TMDb tile size for library grid/list thumbnails (see image.tmdb.org size docs). */
 const TMDB_TILE_SIZE = "w185";
 const TMDB_PREFIX = "https://image.tmdb.org/t/p/";
@@ -712,30 +734,38 @@ function renderQueueOverflowSheet(open, title, year, hideDestructive, offline, o
             onClose();
     }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Download actions">
+      <div
+        class="sheet-panel queue-menu"
+        role="dialog"
+        aria-label="Download actions"
+      >
         <h2>${title}${year ? ` (${year})` : ""}</h2>
-        ${hideDestructive
+        <div class="queue-menu-actions">
+          ${hideDestructive
         ? b `<p class="hint-muted">
-              Removing is turned off on this dashboard.
-            </p>`
+                Removing is turned off on this dashboard.
+              </p>`
         : b `
-              <button
-                class="outline-danger"
-                data-action="queue-remove"
-                ?disabled=${offline}
-                @click=${onRemove}
-              >
-                Remove download
-              </button>
-              <button
-                class="outline-danger"
-                ?disabled=${offline}
-                @click=${onBlocklist}
-              >
-                Remove & blocklist
-              </button>
-            `}
-        <button class="text" @click=${onClose}>Close</button>
+                <button
+                  class="queue-menu-btn"
+                  data-action="queue-remove"
+                  aria-label="Remove download"
+                  ?disabled=${offline}
+                  @click=${onRemove}
+                >
+                  Remove
+                </button>
+                <button
+                  class="queue-menu-btn"
+                  aria-label="Remove and blocklist"
+                  ?disabled=${offline}
+                  @click=${onBlocklist}
+                >
+                  Blocklist
+                </button>
+              `}
+          <button class="text" @click=${onClose}>Close</button>
+        </div>
       </div>
     </div>
   `;
@@ -752,9 +782,6 @@ function toastSearchAgain(title) {
 }
 function toastGrab() {
     return "Sent to download client. Watch it in Downloading.";
-}
-function toastRemoveSearchAgain(title) {
-    return `Removed ${title} and blocked the release. Searching for another…`;
 }
 function toastRemoveQueue(title) {
     return `Removed ${title} from downloads.`;
@@ -861,16 +888,6 @@ const cardStyles = i$3 `
     gap: 8px;
     margin-bottom: 4px;
     padding: 0 12px;
-  }
-
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1.35rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #fff;
   }
 
   .chips {
@@ -1185,7 +1202,7 @@ const cardStyles = i$3 `
     position: absolute;
     top: 6px;
     right: 6px;
-    z-index: 2;
+    z-index: 3;
     border: none;
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
@@ -1197,11 +1214,22 @@ const cardStyles = i$3 `
     cursor: pointer;
   }
 
+  .queue-tile-label {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    padding: 8px 42px 22px 8px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    pointer-events: none;
+  }
+
   .queue-tile-title {
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: #e5e5e5;
+    color: #fff;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1209,9 +1237,11 @@ const cardStyles = i$3 `
   }
 
   .queue-tile-meta {
-    margin: 0;
-    font-size: 0.72rem;
-    color: #9a9a9a;
+    margin: 2px 0 0;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.86);
+    line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1493,6 +1523,7 @@ const cardStyles = i$3 `
   }
 
   .poster-grid .poster-btn {
+    position: relative;
     width: 100%;
     min-width: 0;
   }
@@ -1504,6 +1535,27 @@ const cardStyles = i$3 `
 
   .poster-grid .poster-caption {
     display: none;
+  }
+
+  .library-scroll .poster-grid .poster-caption {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: block;
+    margin: 0;
+    padding: 8px 8px 20px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    border-radius: 4px 4px 0 0;
+    pointer-events: none;
   }
 
   .issues-pane {
@@ -1538,10 +1590,6 @@ const cardStyles = i$3 `
 
   .compact ha-card {
     padding: 10px;
-  }
-
-  .compact .header .title-row {
-    font-size: 1rem;
   }
 
   .mono {
@@ -1662,6 +1710,47 @@ const cardStyles = i$3 `
     flex: 0 0 148px;
     width: 148px;
     scroll-snap-align: start;
+  }
+
+  .add-pane {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .coming-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 16px;
+  }
+
+  .coming-grid .poster-btn.small {
+    position: relative;
+    flex: none;
+    width: 100%;
+  }
+
+  .coming-grid .poster-caption {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: block;
+    margin: 0;
+    padding: 8px 8px 20px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    border-radius: 4px 4px 0 0;
+    pointer-events: none;
   }
 
   .h-scroll {
@@ -1792,6 +1881,88 @@ const cardStyles = i$3 `
 
   .layout-tablet .sheet-panel {
     border-radius: 12px;
+  }
+
+  .detail-popup-backdrop.sheet-backdrop {
+    align-items: center;
+    padding: 16px;
+  }
+
+  .detail-popup.sheet-panel {
+    width: min(440px, 100%);
+    max-height: min(88vh, 760px);
+    overflow: auto;
+    padding: 16px 16px 20px;
+    border-radius: 12px;
+  }
+
+  .detail-popup h2 {
+    margin: 4px 0 12px;
+    font-size: 1.2rem;
+    line-height: 1.25;
+  }
+
+  .detail-popup .detail-poster {
+    float: none;
+    display: block;
+    width: 140px;
+    max-width: 46%;
+    height: auto;
+    margin: 0 0 12px;
+  }
+
+  .detail-popup .detail-actions {
+    flex-direction: column;
+  }
+
+  .detail-popup .detail-actions button,
+  .layout-tablet .detail-popup .detail-actions button.primary {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .queue-menu.sheet-panel {
+    width: max-content;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 14px 14px 12px;
+  }
+
+  .queue-menu h2 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .queue-menu-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .queue-menu-actions button.queue-menu-btn,
+  .layout-tablet .queue-menu-actions button.queue-menu-btn {
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #e5e5e5;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .queue-menu-actions button.queue-menu-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .queue-menu-actions button.text {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.82rem;
   }
 
   .sheet-header {
@@ -2083,20 +2254,6 @@ class ArrCardEditor extends i {
         return b `
       <div class="card-config">
           <h3>General</h3>
-          <label>
-            Title
-            <input
-              .value=${String(this._value("title") ?? "Movies")}
-              @change=${(e) => this._set("title", e.target.value)}
-            />
-          </label>
-          <label>
-            Icon (MDI)
-            <input
-              .value=${String(this._value("icon") ?? "mdi:movie-open")}
-              @change=${(e) => this._set("icon", e.target.value)}
-            />
-          </label>
           <label>
             Instance
             <input
@@ -2578,6 +2735,10 @@ class ArrDashboardCard extends i {
         const cfg = this.config ?? {};
         return cfg.layout === "tablet" || (cfg.layout === "auto" && !this._compact);
     }
+    /** Side-by-side details only fit once the card is wider than a phone. */
+    get _mobileDetail() {
+        return (this._hostWidth || 900) < 680;
+    }
     async _ws(command, data) {
         if (!this._entryId || !this.hass)
             throw new Error("No instance");
@@ -2603,13 +2764,15 @@ class ArrDashboardCard extends i {
         }
         this._schedulePoll();
     }
+    get _libraryColumns() {
+        return libraryPosterColumns(this._hostWidth || 900);
+    }
     _libraryPageLimit() {
-        return Math.max(24, this._posterColumns * 8);
+        return Math.max(24, this._libraryColumns * 8);
     }
     get _posterRowHeight() {
         const width = this._hostWidth || 900;
-        const colW = width / this._posterColumns;
-        return Math.ceil(colW * (3 / 2) + 12);
+        return libraryPosterRowHeight(width, this._libraryColumns);
     }
     async _resetLibrary() {
         if (!this._entryId || !this.hass)
@@ -2859,7 +3022,10 @@ class ArrDashboardCard extends i {
         const queueCount = this._state?.queue_count ?? 0;
         const failedInQueue = this._queueRecords().some((r) => (r.status || "").toLowerCase() === "failed");
         const healthCount = this._state?.health?.length ?? 0;
-        const sideDetail = this._layoutTablet && this._selectedMovie && this._tab === "library";
+        const sideDetail = this._layoutTablet &&
+            !this._mobileDetail &&
+            Boolean(this._selectedMovie) &&
+            this._tab === "library";
         return b `
       <ha-card
         data-screen=${o$1(this._compact ? "G04" : undefined)}
@@ -2867,15 +3033,11 @@ class ArrDashboardCard extends i {
             ? "layout-tablet"
             : ""} ${sideDetail ? "with-side-panel" : ""}"
       >
-        <div class="header">
-          <div class="title-row">
-            <ha-icon icon="${cfg.icon ?? "mdi:movie-open"}"></ha-icon>
-            <span>${cfg.title ?? "Movies"}</span>
-          </div>
-          ${this._headerChips().length
-            ? b `<div class="chips">${this._renderChips()}</div>`
+        ${this._headerChips().length
+            ? b `<div class="header">
+              <div class="chips">${this._renderChips()}</div>
+            </div>`
             : A}
-        </div>
 
         ${showTabBar
             ? this._renderTabs(tabs, queueCount, failedInQueue, healthCount)
@@ -3084,9 +3246,9 @@ class ArrDashboardCard extends i {
                 <arr-virtual-list
                   data-screen="L05"
                   class="library-virtual"
-                  style="--arr-cols: ${this._posterColumns}; --arr-virtual-height: 100%"
+                  style="--arr-cols: ${this._libraryColumns}; --arr-virtual-height: 100%"
                   .itemCount=${this._libraryItems.length}
-                  .columns=${this._posterColumns}
+                  .columns=${this._libraryColumns}
                   .itemHeight=${this._posterRowHeight}
                   rowClass="poster-grid"
                   .renderRow=${this._libraryRowRender}
@@ -3132,6 +3294,7 @@ class ArrDashboardCard extends i {
           alt=""
           loading="lazy"
         />
+        <span class="poster-caption">${m.title}</span>
       </button>
     `;
     }
@@ -3213,6 +3376,12 @@ class ArrDashboardCard extends i {
           <span class="queue-tile-status pill ${failed ? "failed" : ""}"
             >${queueStatusLabel(row)}</span
           >
+          <div class="queue-tile-label">
+            <p class="queue-tile-title">${title}</p>
+            ${metaLine
+            ? b `<p class="queue-tile-meta">${metaLine}</p>`
+            : A}
+          </div>
           ${!hide
             ? b `<button
                 class="queue-tile-overflow"
@@ -3224,58 +3393,42 @@ class ArrDashboardCard extends i {
               </button>`
             : A}
         </div>
-        <p class="queue-tile-title">${title}</p>
-        ${metaLine
-            ? b `<p class="queue-tile-meta">${metaLine}</p>`
-            : A}
-        <div class="queue-tile-actions">
-          ${!hide
-            ? b `
-                ${failed || row.trackedDownloadStatus === "warning"
+        ${(!hide && failed) ||
+            (hide && queueNeedsAttention(row)) ||
+            (importAttn && row.outputPath)
+            ? b `<div class="queue-tile-actions">
+              ${!hide && failed
                 ? b `<button
-                      class="tile-action tile-action--danger"
-                      data-action="remove-search-again"
-                      data-qid=${row.id}
-                      ?disabled=${this._offline}
-                      @click=${() => void this._removeSearchAgain(row.id, title)}
-                    >
-                      Remove & search again
-                    </button>`
-                : A}
-                ${failed
-                ? b `<button
-                      class="tile-action tile-action--danger tile-action--muted"
-                      data-action="queue-remove"
-                      data-qid=${row.id}
-                      ?disabled=${this._offline}
-                      @click=${() => this._openConfirm("d04b", {
+                    class="tile-action tile-action--danger tile-action--muted"
+                    data-action="queue-remove"
+                    data-qid=${row.id}
+                    ?disabled=${this._offline}
+                    @click=${() => this._openConfirm("d04b", {
                     title,
                     queue_id: row.id,
                 })}
-                    >
-                      Remove
-                    </button>`
+                  >
+                    Remove
+                  </button>`
                 : A}
-              `
-            : b `
-                ${queueNeedsAttention(row)
+              ${hide && queueNeedsAttention(row)
                 ? b `<p class="hint-muted" data-screen="D07T">
-                      <ha-icon icon="mdi:information-outline"></ha-icon>
-                      Removing is turned off on this dashboard.
-                    </p>`
+                    <ha-icon icon="mdi:information-outline"></ha-icon>
+                    Removing is turned off on this dashboard.
+                  </p>`
                 : A}
-              `}
-          ${importAttn && row.outputPath
-            ? b `<button
-                class="primary compact"
-                data-action="retry-import"
-                ?disabled=${this._offline}
-                @click=${() => void this._retryImport(row)}
-              >
-                Retry import
-              </button>`
+              ${importAttn && row.outputPath
+                ? b `<button
+                    class="primary compact"
+                    data-action="retry-import"
+                    ?disabled=${this._offline}
+                    @click=${() => void this._retryImport(row)}
+                  >
+                    Retry import
+                  </button>`
+                : A}
+            </div>`
             : A}
-        </div>
       </article>
     `;
     }
@@ -3302,7 +3455,7 @@ class ArrDashboardCard extends i {
             : [];
         return b `
       <svg width="0" height="0" aria-hidden="true"></svg>
-      <div data-screen=${screen}>
+      <div data-screen=${screen} class="add-pane">
         <input
           class="search-field"
           placeholder="Search for a movie to add"
@@ -3318,7 +3471,10 @@ class ArrDashboardCard extends i {
             ? b `
               <section data-screen="A01" class="row-section">
                 <h3>Coming soon in your library</h3>
-                <div class="h-scroll">
+                <div
+                  class="coming-grid"
+                  style="--arr-cols: ${this._libraryColumns}"
+                >
                   ${libraryUpcoming.map((m) => this._libraryTile(m))}
                 </div>
               </section>
@@ -3521,9 +3677,23 @@ class ArrDashboardCard extends i {
                 ? "M01"
                 : "M02";
         return b `
-      <dialog open class="detail-dialog" data-screen=${dialogScreen}>
-        ${this._detailBody(m, false)}
-      </dialog>
+      <div
+        class="sheet-backdrop detail-popup-backdrop"
+        @click=${(e) => {
+            if (e.target === e.currentTarget)
+                this._closeMovieDetail();
+        }}
+      >
+        <div
+          class="sheet-panel detail-popup"
+          role="dialog"
+          aria-modal="true"
+          aria-label=${`${m.title ?? "Movie"} details`}
+          data-screen=${dialogScreen}
+        >
+          ${this._detailBody(m, false)}
+        </div>
+      </div>
     `;
     }
     _renderManualSearch() {
@@ -3750,16 +3920,6 @@ class ArrDashboardCard extends i {
         finally {
             this._confirmBusy = false;
             this._confirm = null;
-        }
-    }
-    async _removeSearchAgain(queueId, title) {
-        try {
-            await this._ws("queue_remove_search_again", { queue_id: queueId });
-            showToast(this, toastRemoveSearchAgain(title));
-            await this._animateQueueExit(queueId);
-        }
-        catch (err) {
-            this._fail("queue_remove", err);
         }
     }
     async _animateQueueExit(queueId) {

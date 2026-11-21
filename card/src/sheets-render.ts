@@ -377,30 +377,38 @@ export function renderQueueOverflowSheet(
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Download actions">
+      <div
+        class="sheet-panel queue-menu"
+        role="dialog"
+        aria-label="Download actions"
+      >
         <h2>${title}${year ? ` (${year})` : ""}</h2>
-        ${hideDestructive
-          ? html`<p class="hint-muted">
-              Removing is turned off on this dashboard.
-            </p>`
-          : html`
-              <button
-                class="outline-danger"
-                data-action="queue-remove"
-                ?disabled=${offline}
-                @click=${onRemove}
-              >
-                Remove download
-              </button>
-              <button
-                class="outline-danger"
-                ?disabled=${offline}
-                @click=${onBlocklist}
-              >
-                Remove & blocklist
-              </button>
-            `}
-        <button class="text" @click=${onClose}>Close</button>
+        <div class="queue-menu-actions">
+          ${hideDestructive
+            ? html`<p class="hint-muted">
+                Removing is turned off on this dashboard.
+              </p>`
+            : html`
+                <button
+                  class="queue-menu-btn"
+                  data-action="queue-remove"
+                  aria-label="Remove download"
+                  ?disabled=${offline}
+                  @click=${onRemove}
+                >
+                  Remove
+                </button>
+                <button
+                  class="queue-menu-btn"
+                  aria-label="Remove and blocklist"
+                  ?disabled=${offline}
+                  @click=${onBlocklist}
+                >
+                  Blocklist
+                </button>
+              `}
+          <button class="text" @click=${onClose}>Close</button>
+        </div>
       </div>
     </div>
   `;
