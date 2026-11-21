@@ -3,6 +3,33 @@ import type { MovieSlim, QueueItem } from "./ws";
 export type LibraryChip = "all" | "missing" | "downloaded" | "in_queue";
 export type LibrarySort = "title" | "added" | "year";
 
+/** Matches `.library-scroll .poster-grid` padding and gap in styles.ts. */
+const LIBRARY_GRID_PAD_X = 24;
+const LIBRARY_GRID_GAP_X = 8;
+const LIBRARY_GRID_ROW_PAD_Y = 12;
+const LIBRARY_TILE_MIN = 160;
+
+/**
+ * How many posters fit across the library grid at this card width.
+ * Wider cards add columns; posters stay near the minimum tile width.
+ */
+export function libraryPosterColumns(width: number): number {
+  const available = Math.max(0, width - LIBRARY_GRID_PAD_X);
+  const cols = Math.floor(
+    (available + LIBRARY_GRID_GAP_X) / (LIBRARY_TILE_MIN + LIBRARY_GRID_GAP_X),
+  );
+  return Math.max(2, cols);
+}
+
+/** Virtual-row height for a 2:3 poster plus the row's vertical padding. */
+export function libraryPosterRowHeight(width: number, columns: number): number {
+  const cols = Math.max(1, columns);
+  const available = Math.max(0, width - LIBRARY_GRID_PAD_X);
+  const tileW =
+    (available - LIBRARY_GRID_GAP_X * Math.max(0, cols - 1)) / cols;
+  return Math.ceil(Math.max(0, tileW) * (3 / 2) + LIBRARY_GRID_ROW_PAD_Y);
+}
+
 export function inLibrary(
   movies: MovieSlim[],
   hit: { tmdbId?: number; title?: string; year?: number },

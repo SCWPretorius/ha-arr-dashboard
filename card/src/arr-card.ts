@@ -5,7 +5,11 @@ import { property, state } from "lit/decorators.js";
 import { defineElement } from "./define-element";
 import { renderConfirmDialog } from "./confirm-dialog";
 import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
-import type { LibrarySort } from "./library-logic";
+import {
+  libraryPosterColumns,
+  libraryPosterRowHeight,
+  type LibrarySort,
+} from "./library-logic";
 import { posterUrlForTile } from "./poster-url";
 import { animateQueueRowExit } from "./queue-motion";
 import {
@@ -32,7 +36,6 @@ import {
   toastRemoveBlocklist,
   toastRemoveMovie,
   toastRemoveQueue,
-  toastRemoveSearchAgain,
   toastRetryImport,
   toastSearchAgain,
   toastGone,
@@ -369,6 +372,11 @@ export class ArrDashboardCard extends LitElement {
     return cfg.layout === "tablet" || (cfg.layout === "auto" && !this._compact);
   }
 
+  /** Side-by-side details only fit once the card is wider than a phone. */
+  private get _mobileDetail(): boolean {
+    return (this._hostWidth || 900) < 680;
+  }
+
   private async _ws(command: string, data?: Record<string, unknown>) {
     if (!this._entryId || !this.hass) throw new Error("No instance");
     return callArr(this.hass, this._entryId, command, data);
@@ -396,14 +404,17 @@ export class ArrDashboardCard extends LitElement {
     this._schedulePoll();
   }
 
+  private get _libraryColumns(): number {
+    return libraryPosterColumns(this._hostWidth || 900);
+  }
+
   private _libraryPageLimit(): number {
-    return Math.max(24, this._posterColumns * 8);
+    return Math.max(24, this._libraryColumns * 8);
   }
 
   private get _posterRowHeight(): number {
     const width = this._hostWidth || 900;
-    const colW = width / this._posterColumns;
-    return Math.ceil(colW * (3 / 2) + 12);
+    return libraryPosterRowHeight(width, this._libraryColumns);
   }
 
   private async _resetLibrary(): Promise<void> {
@@ -684,7 +695,10 @@ export class ArrDashboardCard extends LitElement {
     );
     const healthCount = this._state?.health?.length ?? 0;
     const sideDetail =
-      this._layoutTablet && this._selectedMovie && this._tab === "library";
+      this._layoutTablet &&
+      !this._mobileDetail &&
+      Boolean(this._selectedMovie) &&
+      this._tab === "library";
 
     return html`
       <ha-card
@@ -693,15 +707,11 @@ export class ArrDashboardCard extends LitElement {
           ? "layout-tablet"
           : ""} ${sideDetail ? "with-side-panel" : ""}"
       >
-        <div class="header">
-          <div class="title-row">
-            <ha-icon icon="${cfg.icon ?? "mdi:movie-open"}"></ha-icon>
-            <span>${cfg.title ?? "Movies"}</span>
-          </div>
-          ${this._headerChips().length
-            ? html`<div class="chips">${this._renderChips()}</div>`
-            : nothing}
-        </div>
+        ${this._headerChips().length
+          ? html`<div class="header">
+              <div class="chips">${this._renderChips()}</div>
+            </div>`
+          : nothing}
 
         ${showTabBar
           ? this._renderTabs(tabs, queueCount, failedInQueue, healthCount)
@@ -986,9 +996,9 @@ export class ArrDashboardCard extends LitElement {
                 <arr-virtual-list
                   data-screen="L05"
                   class="library-virtual"
-                  style="--arr-cols: ${this._posterColumns}; --arr-virtual-height: 100%"
+                  style="--arr-cols: ${this._libraryColumns}; --arr-virtual-height: 100%"
                   .itemCount=${this._libraryItems.length}
-                  .columns=${this._posterColumns}
+                  .columns=${this._libraryColumns}
                   .itemHeight=${this._posterRowHeight}
                   rowClass="poster-grid"
                   .renderRow=${this._libraryRowRender}
@@ -1036,6 +1046,7 @@ export class ArrDashboardCard extends LitElement {
           alt=""
           loading="lazy"
         />
+        <span class="poster-caption">${m.title}</span>
       </button>
     `;
   }
@@ -1125,6 +1136,12 @@ export class ArrDashboardCard extends LitElement {
           <span class="queue-tile-status pill ${failed ? "failed" : ""}"
             >${queueStatusLabel(row)}</span
           >
+          <div class="queue-tile-label">
+            <p class="queue-tile-title">${title}</p>
+            ${metaLine
+              ? html`<p class="queue-tile-meta">${metaLine}</p>`
+              : nothing}
+          </div>
           ${!hide
             ? html`<button
                 class="queue-tile-overflow"
@@ -1136,59 +1153,43 @@ export class ArrDashboardCard extends LitElement {
               </button>`
             : nothing}
         </div>
-        <p class="queue-tile-title">${title}</p>
-        ${metaLine
-          ? html`<p class="queue-tile-meta">${metaLine}</p>`
+        ${(!hide && failed) ||
+        (hide && queueNeedsAttention(row)) ||
+        (importAttn && row.outputPath)
+          ? html`<div class="queue-tile-actions">
+              ${!hide && failed
+                ? html`<button
+                    class="tile-action tile-action--danger tile-action--muted"
+                    data-action="queue-remove"
+                    data-qid=${row.id}
+                    ?disabled=${this._offline}
+                    @click=${() =>
+                      this._openConfirm("d04b", {
+                        title,
+                        queue_id: row.id,
+                      })}
+                  >
+                    Remove
+                  </button>`
+                : nothing}
+              ${hide && queueNeedsAttention(row)
+                ? html`<p class="hint-muted" data-screen="D07T">
+                    <ha-icon icon="mdi:information-outline"></ha-icon>
+                    Removing is turned off on this dashboard.
+                  </p>`
+                : nothing}
+              ${importAttn && row.outputPath
+                ? html`<button
+                    class="primary compact"
+                    data-action="retry-import"
+                    ?disabled=${this._offline}
+                    @click=${() => void this._retryImport(row)}
+                  >
+                    Retry import
+                  </button>`
+                : nothing}
+            </div>`
           : nothing}
-        <div class="queue-tile-actions">
-          ${!hide
-            ? html`
-                ${failed || row.trackedDownloadStatus === "warning"
-                  ? html`<button
-                      class="tile-action tile-action--danger"
-                      data-action="remove-search-again"
-                      data-qid=${row.id}
-                      ?disabled=${this._offline}
-                      @click=${() => void this._removeSearchAgain(row.id, title)}
-                    >
-                      Remove & search again
-                    </button>`
-                  : nothing}
-                ${failed
-                  ? html`<button
-                      class="tile-action tile-action--danger tile-action--muted"
-                      data-action="queue-remove"
-                      data-qid=${row.id}
-                      ?disabled=${this._offline}
-                      @click=${() =>
-                        this._openConfirm("d04b", {
-                          title,
-                          queue_id: row.id,
-                        })}
-                    >
-                      Remove
-                    </button>`
-                  : nothing}
-              `
-            : html`
-                ${queueNeedsAttention(row)
-                  ? html`<p class="hint-muted" data-screen="D07T">
-                      <ha-icon icon="mdi:information-outline"></ha-icon>
-                      Removing is turned off on this dashboard.
-                    </p>`
-                  : nothing}
-              `}
-          ${importAttn && row.outputPath
-            ? html`<button
-                class="primary compact"
-                data-action="retry-import"
-                ?disabled=${this._offline}
-                @click=${() => void this._retryImport(row)}
-              >
-                Retry import
-              </button>`
-            : nothing}
-        </div>
       </article>
     `;
   }
@@ -1219,7 +1220,7 @@ export class ArrDashboardCard extends LitElement {
 
     return html`
       <svg width="0" height="0" aria-hidden="true"></svg>
-      <div data-screen=${screen}>
+      <div data-screen=${screen} class="add-pane">
         <input
           class="search-field"
           placeholder="Search for a movie to add"
@@ -1235,7 +1236,10 @@ export class ArrDashboardCard extends LitElement {
           ? html`
               <section data-screen="A01" class="row-section">
                 <h3>Coming soon in your library</h3>
-                <div class="h-scroll">
+                <div
+                  class="coming-grid"
+                  style="--arr-cols: ${this._libraryColumns}"
+                >
                   ${libraryUpcoming.map((m) => this._libraryTile(m))}
                 </div>
               </section>
@@ -1455,9 +1459,22 @@ export class ArrDashboardCard extends LitElement {
         ? "M01"
         : "M02";
     return html`
-      <dialog open class="detail-dialog" data-screen=${dialogScreen}>
-        ${this._detailBody(m, false)}
-      </dialog>
+      <div
+        class="sheet-backdrop detail-popup-backdrop"
+        @click=${(e: Event) => {
+          if (e.target === e.currentTarget) this._closeMovieDetail();
+        }}
+      >
+        <div
+          class="sheet-panel detail-popup"
+          role="dialog"
+          aria-modal="true"
+          aria-label=${`${m.title ?? "Movie"} details`}
+          data-screen=${dialogScreen}
+        >
+          ${this._detailBody(m, false)}
+        </div>
+      </div>
     `;
   }
 
@@ -1711,19 +1728,6 @@ export class ArrDashboardCard extends LitElement {
     } finally {
       this._confirmBusy = false;
       this._confirm = null;
-    }
-  }
-
-  private async _removeSearchAgain(
-    queueId: number,
-    title: string,
-  ): Promise<void> {
-    try {
-      await this._ws("queue_remove_search_again", { queue_id: queueId });
-      showToast(this, toastRemoveSearchAgain(title));
-      await this._animateQueueExit(queueId);
-    } catch (err) {
-      this._fail("queue_remove", err);
     }
   }
 

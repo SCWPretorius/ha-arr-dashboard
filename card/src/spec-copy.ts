@@ -14,10 +14,6 @@ export function toastGrab(): string {
   return "Sent to download client. Watch it in Downloading.";
 }
 
-export function toastRemoveSearchAgain(title: string): string {
-  return `Removed ${title} and blocked the release. Searching for another…`;
-}
-
 export function toastRemoveQueue(title: string): string {
   return `Removed ${title} from downloads.`;
 }

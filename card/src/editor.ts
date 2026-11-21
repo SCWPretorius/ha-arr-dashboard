@@ -60,22 +60,6 @@ export class ArrCardEditor extends LitElement {
       <div class="card-config">
           <h3>General</h3>
           <label>
-            Title
-            <input
-              .value=${String(this._value("title") ?? "Movies")}
-              @change=${(e: Event) =>
-                this._set("title", (e.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            Icon (MDI)
-            <input
-              .value=${String(this._value("icon") ?? "mdi:movie-open")}
-              @change=${(e: Event) =>
-                this._set("icon", (e.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
             Instance
             <input
               .value=${String(this._value("instance") ?? "")}

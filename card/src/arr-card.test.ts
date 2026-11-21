@@ -157,11 +157,8 @@ describe("arr-card hide_destructive_actions", () => {
 
   it("removes destructive queue buttons from the DOM", () => {
     const remove = el.shadowRoot?.querySelector('[data-action="queue-remove"]');
-    const removeSearch = el.shadowRoot?.querySelector(
-      '[data-action="remove-search-again"]',
-    );
     expect(remove).to.be.null;
-    expect(removeSearch).to.be.null;
+    expect(el.shadowRoot?.textContent).not.to.contain("Remove & search again");
     const hint = el.shadowRoot?.querySelector('[data-screen="D07T"]');
     expect(hint?.textContent).to.contain("Removing is turned off");
   });
@@ -295,7 +292,9 @@ describe("arr-card library grid", () => {
     expect(list).to.exist;
     expect(el.shadowRoot?.textContent).not.to.contain("Recently added");
     const grid = el.shadowRoot?.querySelector(".library-scroll .poster-grid");
-    expect(grid?.querySelector(".poster-caption")).to.equal(null);
+    expect(grid?.querySelector(".poster-caption")?.textContent).to.contain(
+      "Movie",
+    );
     expect(el.shadowRoot?.querySelector(".chip-row .filter-chip")).to.equal(
       null,
     );
@@ -360,6 +359,44 @@ describe("arr-card library grid", () => {
     expect(internal._libraryItems.length).to.be.greaterThan(before);
     expect(pageCalls).to.include(before);
     vi.unstubAllGlobals();
+  });
+
+  it("opens movie details in a popup on a narrow card", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["library"],
+      default_tab: "library",
+      layout: "tablet",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const card = el as unknown as {
+      _hostWidth: number;
+      _selectedMovie: object;
+      requestUpdate: () => void;
+    };
+    card._hostWidth = 408;
+    card._selectedMovie = {
+      id: 1,
+      title: "The Secret Life of Walter Mitty",
+      year: 2013,
+      hasFile: true,
+    };
+    card.requestUpdate();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".detail-popup")).to.exist;
+    expect(el.shadowRoot?.querySelector(".side-panel")).to.equal(null);
+    expect(el.shadowRoot?.textContent).to.contain(
+      "The Secret Life of Walter Mitty",
+    );
+
+    card._hostWidth = 1100;
+    card.requestUpdate();
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector(".side-panel")).to.exist;
+    expect(el.shadowRoot?.querySelector(".detail-popup")).to.equal(null);
   });
 
   it("lazy-loads library pages instead of mounting every movie", async () => {
@@ -438,6 +475,8 @@ describe("arr-card A01 upcoming row", () => {
     const row = el.shadowRoot?.querySelector('[data-screen="A01"]');
     expect(row).to.exist;
     expect(row?.textContent).to.contain("Coming soon in your library");
+    expect(row?.querySelector(".coming-grid")).to.exist;
+    expect(row?.querySelector(".h-scroll")).to.equal(null);
   });
 });
 
