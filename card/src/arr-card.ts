@@ -5,6 +5,7 @@ import { property, state } from "lit/decorators.js";
 import {
   episodeCode,
   isMonitorMode,
+  preferredSearchEpisode,
   profileFor,
   seriesRunLabel,
   type ArrApp,
@@ -168,6 +169,7 @@ export class ArrDashboardCard extends LitElement {
   @state() private _episodes: SeriesEpisode[] = [];
   @state() private _episodeId?: number;
   @state() private _episodesLoading = false;
+  @state() private _episodesError = "";
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
   @state() private _releaseBusy = false;
@@ -866,19 +868,27 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private async _loadEpisodeReleases(episodeId: number): Promise<void> {
+    const cached = this._releaseCache.get(episodeId);
+    const now = Date.now();
+    if (cached && now - cached.at < RELEASE_CACHE_MS) {
+      if (this._episodeId === episodeId) this._releases = cached.releases;
+      return;
+    }
     this._releaseBusy = true;
     try {
       const res = (await this._ws("release_search", {
         episode_id: episodeId,
       })) as { releases: ReleaseRow[] };
+      if (this._episodeId !== episodeId) return;
       const releases = res.releases ?? [];
-      this._releaseCache.set(episodeId, { at: Date.now(), releases });
+      this._releaseCache.set(episodeId, { at: now, releases });
       this._releases = releases;
     } catch (err) {
+      if (this._episodeId !== episodeId) return;
       this._fail("release_search", err);
       this._releases = [];
     } finally {
-      this._releaseBusy = false;
+      if (this._episodeId === episodeId) this._releaseBusy = false;
     }
   }
 
@@ -2011,7 +2021,9 @@ export class ArrDashboardCard extends LitElement {
               `
             : this._episodesLoading
               ? html`<p>Loading episodes…</p>`
-              : html`<p>No episodes on this series yet.</p>`
+              : this._episodesError
+                ? html`<p class="error-text">${this._episodesError}</p>`
+                : html`<p>No episodes on this series yet.</p>`
           : nothing}
         ${this.app === "sonarr" && !this._episodes.length
           ? nothing
@@ -2370,19 +2382,19 @@ export class ArrDashboardCard extends LitElement {
     this._releases = [];
     this._episodes = [];
     this._episodeId = undefined;
+    this._episodesError = "";
     this._episodesLoading = true;
     try {
       const res = (await this._ws("get_episodes", {
         series_id: m.id,
       })) as { episodes?: SeriesEpisode[] };
       this._episodes = res.episodes ?? [];
-      const first =
-        this._episodes.find((episode) => !episode.hasFile) ??
-        this._episodes[0];
-      this._episodeId = first?.id;
+      this._episodeId = preferredSearchEpisode(this._episodes)?.id;
     } catch (err) {
       this._fail("get_episodes", err);
       this._episodes = [];
+      this._episodesError =
+        err instanceof Error ? err.message : "Could not load episodes.";
     } finally {
       this._episodesLoading = false;
     }

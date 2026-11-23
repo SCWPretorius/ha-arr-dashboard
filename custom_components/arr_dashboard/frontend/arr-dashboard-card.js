@@ -176,6 +176,11 @@ function seriesRunLabel(status) {
         return "Ended";
     return "";
 }
+function preferredSearchEpisode(episodes) {
+    const regular = episodes.filter((episode) => (episode.seasonNumber ?? 0) > 0);
+    const pool = regular.length ? regular : episodes;
+    return pool.find((episode) => !episode.hasFile) ?? pool[0];
+}
 function episodeCode(seasonNumber, episodeNumber) {
     if (seasonNumber == null || episodeNumber == null)
         return "";
@@ -2916,6 +2921,7 @@ class ArrDashboardCard extends i {
         this._qualitySearch = true;
         this._episodes = [];
         this._episodesLoading = false;
+        this._episodesError = "";
         this._releases = [];
         this._showRejected = false;
         this._releaseBusy = false;
@@ -3566,21 +3572,33 @@ class ArrDashboardCard extends i {
         }
     }
     async _loadEpisodeReleases(episodeId) {
+        const cached = this._releaseCache.get(episodeId);
+        const now = Date.now();
+        if (cached && now - cached.at < RELEASE_CACHE_MS) {
+            if (this._episodeId === episodeId)
+                this._releases = cached.releases;
+            return;
+        }
         this._releaseBusy = true;
         try {
             const res = (await this._ws("release_search", {
                 episode_id: episodeId,
             }));
+            if (this._episodeId !== episodeId)
+                return;
             const releases = res.releases ?? [];
-            this._releaseCache.set(episodeId, { at: Date.now(), releases });
+            this._releaseCache.set(episodeId, { at: now, releases });
             this._releases = releases;
         }
         catch (err) {
+            if (this._episodeId !== episodeId)
+                return;
             this._fail("release_search", err);
             this._releases = [];
         }
         finally {
-            this._releaseBusy = false;
+            if (this._episodeId === episodeId)
+                this._releaseBusy = false;
         }
     }
     render() {
@@ -4567,7 +4585,9 @@ class ArrDashboardCard extends i {
               `
                 : this._episodesLoading
                     ? b `<p>Loading episodes…</p>`
-                    : b `<p>No episodes on this series yet.</p>`
+                    : this._episodesError
+                        ? b `<p class="error-text">${this._episodesError}</p>`
+                        : b `<p>No episodes on this series yet.</p>`
             : A}
         ${this.app === "sonarr" && !this._episodes.length
             ? A
@@ -4883,19 +4903,20 @@ class ArrDashboardCard extends i {
         this._releases = [];
         this._episodes = [];
         this._episodeId = undefined;
+        this._episodesError = "";
         this._episodesLoading = true;
         try {
             const res = (await this._ws("get_episodes", {
                 series_id: m.id,
             }));
             this._episodes = res.episodes ?? [];
-            const first = this._episodes.find((episode) => !episode.hasFile) ??
-                this._episodes[0];
-            this._episodeId = first?.id;
+            this._episodeId = preferredSearchEpisode(this._episodes)?.id;
         }
         catch (err) {
             this._fail("get_episodes", err);
             this._episodes = [];
+            this._episodesError =
+                err instanceof Error ? err.message : "Could not load episodes.";
         }
         finally {
             this._episodesLoading = false;
@@ -5078,6 +5099,9 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_episodesLoading", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_episodesError", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_releases", void 0);

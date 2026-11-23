@@ -146,6 +146,14 @@ export function seriesRunLabel(status: unknown): "Continuing" | "Ended" | "" {
   return "";
 }
 
+export function preferredSearchEpisode<T extends { seasonNumber?: number; hasFile?: boolean }>(
+  episodes: readonly T[],
+): T | undefined {
+  const regular = episodes.filter((episode) => (episode.seasonNumber ?? 0) > 0);
+  const pool = regular.length ? regular : episodes;
+  return pool.find((episode) => !episode.hasFile) ?? pool[0];
+}
+
 export function episodeCode(
   seasonNumber: number | undefined,
   episodeNumber: number | undefined,
