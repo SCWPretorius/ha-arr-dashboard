@@ -17,6 +17,8 @@ export class ArrVirtualList extends LitElement {
     startIndex: number,
     count: number,
   ) => unknown;
+  /** New value when row contents change but itemCount stays the same. */
+  @property({ attribute: false }) contentKey: unknown = 0;
 
   @state() private _scrollTop = 0;
   @state() private _height = 400;
@@ -58,6 +60,7 @@ export class ArrVirtualList extends LitElement {
   }
 
   protected render() {
+    void this.contentKey;
     const rows = this._rowCount();
     const buffer = this.itemHeight * 4;
     const total = rows * this.itemHeight;
