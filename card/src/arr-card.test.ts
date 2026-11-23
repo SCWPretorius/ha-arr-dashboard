@@ -252,6 +252,50 @@ describe("arr-card add sheet", () => {
     expect(sheet).to.exist;
     expect(sheet?.textContent).to.contain("Add New Film");
   });
+
+  it("renders lookup hits as poster cards with an add button", async () => {
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = mockHass as never;
+    el.setConfig({ type: "custom:arr-card", tabs: ["add"], default_tab: "add" });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 60));
+    await el.updateComplete;
+    const card = el as unknown as {
+      _addPhase: string;
+      _addQuery: string;
+      _lookupResults: Record<string, unknown>[];
+    };
+    card._addPhase = "results";
+    card._addQuery = "Dune";
+    card._lookupResults = [
+      {
+        title: "Dune",
+        year: 2021,
+        tmdbId: 438631,
+        status: "announced",
+        images: [
+          {
+            coverType: "poster",
+            remoteUrl: "https://image.tmdb.org/t/p/original/dune.jpg",
+          },
+        ],
+      },
+    ];
+    await el.updateComplete;
+    const cardEl = el.shadowRoot?.querySelector(".lookup-card");
+    const img = cardEl?.querySelector("img.lookup-poster");
+    expect(img?.getAttribute("src")).to.equal(
+      "https://image.tmdb.org/t/p/w185/dune.jpg",
+    );
+    expect(cardEl?.querySelector(".lookup-title")?.textContent).to.contain(
+      "Dune (2021)",
+    );
+    expect(cardEl?.querySelector(".lookup-soon")?.textContent).to.equal("Soon");
+    const add = cardEl?.querySelector('[data-action="add-movie"]');
+    expect(add?.textContent?.trim()).to.equal("Add movie");
+    expect(el.shadowRoot?.textContent).not.to.contain("Coming soon in results");
+  });
 });
 
 describe("arr-card issues tab", () => {
