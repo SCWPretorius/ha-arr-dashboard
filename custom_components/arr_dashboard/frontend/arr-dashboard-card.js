@@ -73,18 +73,30 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
 
 /** Register a custom element once. Lovelace may import this module more than once. */
 function defineElement(name, ctor) {
-    if (customElements.get(name))
-        return;
-    try {
-        customElements.define(name, ctor);
-    }
-    catch (err) {
-        if (err instanceof DOMException &&
-            (err.name === "NotSupportedError" || err.name === "NotAllowedError")) {
+    const attempt = () => {
+        if (customElements.get(name))
             return;
+        try {
+            customElements.define(name, ctor);
         }
-        throw err;
-    }
+        catch (err) {
+            if (customElements.get(name))
+                return;
+            if (err instanceof DOMException &&
+                (err.name === "NotSupportedError" || err.name === "NotAllowedError")) {
+                return;
+            }
+            throw err;
+        }
+    };
+    attempt();
+    // Lovelace can create the card before this module finishes defining it.
+    // A failed or skipped define during that import still leaves the name free,
+    // and a second attempt once the import microtask runs succeeds.
+    queueMicrotask(() => {
+        if (!customElements.get(name))
+            attempt();
+    });
 }
 
 function formatSize(bytes) {

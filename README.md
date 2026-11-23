@@ -112,7 +112,7 @@ You do not need a browser hard refresh for card changes: the integration registe
 4. In **YAML** `resource_mode`, the integration still preloads the card via the frontend extra-JS URL when possible. If the card never loads, add a Lovelace resource manually:
 
    ```yaml
-   url: /arr_dashboard/frontend/arr-dashboard-card.js?v=1.2.0
+   url: /arr_dashboard/frontend/arr-dashboard-card.js?v=1.2.1
    type: module
    ```
 
