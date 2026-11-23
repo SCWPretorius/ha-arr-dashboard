@@ -1015,13 +1015,109 @@ export const cardStyles = css`
     }
   }
 
-  .lookup-row {
+  .lookup-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 16px;
+  }
+
+  .lookup-card {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #2a2a2a;
+  }
+
+  .lookup-poster {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #2a2a2a;
+  }
+
+  .lookup-title {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin: 0;
+    padding: 8px 8px 28px;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    pointer-events: none;
+  }
+
+  .lookup-title > span:first-child {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .lookup-soon {
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .lookup-actions {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--divider-color);
+    gap: 6px;
+    padding: 28px 8px 8px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
+  }
+
+  .lookup-actions button.primary {
+    flex: 1 1 auto;
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .layout-tablet .lookup-actions button.primary {
+    min-height: 32px;
+    font-size: 0.75rem;
+  }
+
+  .lookup-actions .pill {
+    font-size: 0.7rem;
+  }
+
+  .lookup-skeleton .skeleton-poster {
+    background: linear-gradient(
+      90deg,
+      var(--divider-color) 25%,
+      transparent 50%,
+      var(--divider-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
   }
 
   .sheet-backdrop {

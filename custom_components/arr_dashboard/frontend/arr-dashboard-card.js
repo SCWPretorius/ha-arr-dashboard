@@ -1846,13 +1846,109 @@ const cardStyles = i$3 `
     }
   }
 
-  .lookup-row {
+  .lookup-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(var(--arr-cols, 3), minmax(0, 1fr));
+    gap: 12px 8px;
+    padding: 4px 12px 16px;
+  }
+
+  .lookup-card {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #2a2a2a;
+  }
+
+  .lookup-poster {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #2a2a2a;
+  }
+
+  .lookup-title {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin: 0;
+    padding: 8px 8px 28px;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent);
+    pointer-events: none;
+  }
+
+  .lookup-title > span:first-child {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .lookup-soon {
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .lookup-actions {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--divider-color);
+    gap: 6px;
+    padding: 28px 8px 8px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
+  }
+
+  .lookup-actions button.primary {
+    flex: 1 1 auto;
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .layout-tablet .lookup-actions button.primary {
+    min-height: 32px;
+    font-size: 0.75rem;
+  }
+
+  .lookup-actions .pill {
+    font-size: 0.7rem;
+  }
+
+  .lookup-skeleton .skeleton-poster {
+    background: linear-gradient(
+      90deg,
+      var(--divider-color) 25%,
+      transparent 50%,
+      var(--divider-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
   }
 
   .sheet-backdrop {
@@ -2454,6 +2550,24 @@ defineElement("arr-card-editor", ArrCardEditor);
 const LOOKUP_DEBOUNCE_MS = 400;
 const LIBRARY_SEARCH_DEBOUNCE_MS = 300;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
+function lookupPosterUrl(hit) {
+    const images = hit.images;
+    if (!Array.isArray(images))
+        return "";
+    for (const img of images) {
+        if (!img || typeof img !== "object")
+            continue;
+        const rec = img;
+        if (rec.coverType === "poster" && typeof rec.remoteUrl === "string") {
+            return posterUrlForTile(rec.remoteUrl);
+        }
+    }
+    return "";
+}
+function lookupComingSoon(hit) {
+    const st = String(hit.status ?? hit.statusType ?? "").toLowerCase();
+    return st.includes("cinemas") || st.includes("announced");
+}
 function queueNeedsAttention(item) {
     const st = (item.status || "").toLowerCase();
     const tr = (item.trackedDownloadStatus || "").toLowerCase();
@@ -3446,10 +3560,6 @@ class ArrDashboardCard extends i {
                         : this._addPhase === "error"
                             ? "A07"
                             : "A01";
-        const comingSoon = this._lookupResults.filter((r) => {
-            const st = String(r.status ?? r.statusType ?? "").toLowerCase();
-            return st.includes("cinemas") || st.includes("announced");
-        });
         const libraryUpcoming = this._addPhase === "start" && !this._addQuery.trim()
             ? this._addUpcoming
             : [];
@@ -3481,7 +3591,13 @@ class ArrDashboardCard extends i {
             `
             : A}
         ${this._addPhase === "searching"
-            ? b `<div class="skeleton-list" aria-busy="true"></div>`
+            ? b `<div
+              class="lookup-grid lookup-skeleton"
+              style="--arr-cols: ${this._libraryColumns}"
+              aria-busy="true"
+            >
+              ${[0, 1, 2, 3, 4, 5].map(() => b `<div class="lookup-card skeleton-poster"></div>`)}
+            </div>`
             : A}
         ${this._addPhase === "no_results"
             ? b `
@@ -3500,42 +3616,65 @@ class ArrDashboardCard extends i {
               </button>
             `
             : A}
-        <div role="list">
-          ${this._lookupResults.map((r) => {
-            const lib = this._lookupLib[this._lookupLibKey(r)];
-            return b `
-              <div class="lookup-row" role="listitem">
-                <strong>${r.title} (${r.year})</strong>
-                ${lib
-                ? b `
-                      <button
-                        class="primary"
-                        @click=${() => void this._openMovieDetail(lib)}
-                      >
-                        Open
-                      </button>
-                      <span class="pill ok">In library</span>
-                    `
-                : b `
-                      <button
-                        class="primary"
-                        data-action="add-movie"
-                        ?disabled=${this._offline}
-                        @click=${() => this._openAddSheet(r)}
-                      >
-                        Add movie
-                      </button>
-                    `}
-              </div>
-            `;
-        })}
-        </div>
-        ${comingSoon.length && this._addPhase === "results"
+        ${this._lookupResults.length && this._addPhase !== "searching"
             ? b `
-              <section data-screen="A07">
-                <h3>Coming soon in results</h3>
-                ${comingSoon.map((r) => b `<p>${r.title} (${r.year})</p>`)}
-              </section>
+              <div
+                class="lookup-grid"
+                role="list"
+                style="--arr-cols: ${this._libraryColumns}"
+              >
+                ${this._lookupResults.map((r) => {
+                const lib = this._lookupLib[this._lookupLibKey(r)];
+                const poster = lookupPosterUrl(r);
+                const title = String(r.title ?? "Movie");
+                const year = r.year;
+                const label = year != null && year !== ""
+                    ? `${title} (${String(year)})`
+                    : title;
+                return b `
+                    <article class="lookup-card" role="listitem">
+                      ${poster
+                    ? b `<img
+                            class="lookup-poster"
+                            src=${poster}
+                            alt=""
+                            loading="lazy"
+                          />`
+                    : b `<div
+                            class="lookup-poster lookup-poster--empty"
+                          ></div>`}
+                      <div class="lookup-title">
+                        <span>${label}</span>
+                        ${lookupComingSoon(r)
+                    ? b `<span class="lookup-soon">Soon</span>`
+                    : A}
+                      </div>
+                      <div class="lookup-actions">
+                        ${lib
+                    ? b `
+                              <button
+                                class="primary"
+                                @click=${() => void this._openMovieDetail(lib)}
+                              >
+                                Open
+                              </button>
+                              <span class="pill ok">In library</span>
+                            `
+                    : b `
+                              <button
+                                class="primary"
+                                data-action="add-movie"
+                                ?disabled=${this._offline}
+                                @click=${() => this._openAddSheet(r)}
+                              >
+                                Add movie
+                              </button>
+                            `}
+                      </div>
+                    </article>
+                  `;
+            })}
+              </div>
             `
             : A}
       </div>

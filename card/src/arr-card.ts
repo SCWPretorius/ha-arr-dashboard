@@ -64,6 +64,25 @@ import {
 const LOOKUP_DEBOUNCE_MS = 400;
 const LIBRARY_SEARCH_DEBOUNCE_MS = 300;
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
+
+function lookupPosterUrl(hit: Record<string, unknown>): string {
+  const images = hit.images;
+  if (!Array.isArray(images)) return "";
+  for (const img of images) {
+    if (!img || typeof img !== "object") continue;
+    const rec = img as Record<string, unknown>;
+    if (rec.coverType === "poster" && typeof rec.remoteUrl === "string") {
+      return posterUrlForTile(rec.remoteUrl);
+    }
+  }
+  return "";
+}
+
+function lookupComingSoon(hit: Record<string, unknown>): boolean {
+  const st = String(hit.status ?? hit.statusType ?? "").toLowerCase();
+  return st.includes("cinemas") || st.includes("announced");
+}
+
 function queueNeedsAttention(item: QueueItem): boolean {
   const st = (item.status || "").toLowerCase();
   const tr = (item.trackedDownloadStatus || "").toLowerCase();
@@ -1209,10 +1228,6 @@ export class ArrDashboardCard extends LitElement {
               : this._addPhase === "error"
                 ? "A07"
                 : "A01";
-    const comingSoon = this._lookupResults.filter((r) => {
-      const st = String(r.status ?? r.statusType ?? "").toLowerCase();
-      return st.includes("cinemas") || st.includes("announced");
-    });
     const libraryUpcoming =
       this._addPhase === "start" && !this._addQuery.trim()
         ? this._addUpcoming
@@ -1246,7 +1261,15 @@ export class ArrDashboardCard extends LitElement {
             `
           : nothing}
         ${this._addPhase === "searching"
-          ? html`<div class="skeleton-list" aria-busy="true"></div>`
+          ? html`<div
+              class="lookup-grid lookup-skeleton"
+              style="--arr-cols: ${this._libraryColumns}"
+              aria-busy="true"
+            >
+              ${[0, 1, 2, 3, 4, 5].map(
+                () => html`<div class="lookup-card skeleton-poster"></div>`,
+              )}
+            </div>`
           : nothing}
         ${this._addPhase === "no_results"
           ? html`
@@ -1265,44 +1288,66 @@ export class ArrDashboardCard extends LitElement {
               </button>
             `
           : nothing}
-        <div role="list">
-          ${this._lookupResults.map((r) => {
-            const lib = this._lookupLib[this._lookupLibKey(r)];
-            return html`
-              <div class="lookup-row" role="listitem">
-                <strong>${r.title as string} (${r.year as number})</strong>
-                ${lib
-                  ? html`
-                      <button
-                        class="primary"
-                        @click=${() => void this._openMovieDetail(lib)}
-                      >
-                        Open
-                      </button>
-                      <span class="pill ok">In library</span>
-                    `
-                  : html`
-                      <button
-                        class="primary"
-                        data-action="add-movie"
-                        ?disabled=${this._offline}
-                        @click=${() => this._openAddSheet(r)}
-                      >
-                        Add movie
-                      </button>
-                    `}
-              </div>
-            `;
-          })}
-        </div>
-        ${comingSoon.length && this._addPhase === "results"
+        ${this._lookupResults.length && this._addPhase !== "searching"
           ? html`
-              <section data-screen="A07">
-                <h3>Coming soon in results</h3>
-                ${comingSoon.map(
-                  (r) => html`<p>${r.title as string} (${r.year as number})</p>`,
-                )}
-              </section>
+              <div
+                class="lookup-grid"
+                role="list"
+                style="--arr-cols: ${this._libraryColumns}"
+              >
+                ${this._lookupResults.map((r) => {
+                  const lib = this._lookupLib[this._lookupLibKey(r)];
+                  const poster = lookupPosterUrl(r);
+                  const title = String(r.title ?? "Movie");
+                  const year = r.year;
+                  const label =
+                    year != null && year !== ""
+                      ? `${title} (${String(year)})`
+                      : title;
+                  return html`
+                    <article class="lookup-card" role="listitem">
+                      ${poster
+                        ? html`<img
+                            class="lookup-poster"
+                            src=${poster}
+                            alt=""
+                            loading="lazy"
+                          />`
+                        : html`<div
+                            class="lookup-poster lookup-poster--empty"
+                          ></div>`}
+                      <div class="lookup-title">
+                        <span>${label}</span>
+                        ${lookupComingSoon(r)
+                          ? html`<span class="lookup-soon">Soon</span>`
+                          : nothing}
+                      </div>
+                      <div class="lookup-actions">
+                        ${lib
+                          ? html`
+                              <button
+                                class="primary"
+                                @click=${() => void this._openMovieDetail(lib)}
+                              >
+                                Open
+                              </button>
+                              <span class="pill ok">In library</span>
+                            `
+                          : html`
+                              <button
+                                class="primary"
+                                data-action="add-movie"
+                                ?disabled=${this._offline}
+                                @click=${() => this._openAddSheet(r)}
+                              >
+                                Add movie
+                              </button>
+                            `}
+                      </div>
+                    </article>
+                  `;
+                })}
+              </div>
             `
           : nothing}
       </div>
