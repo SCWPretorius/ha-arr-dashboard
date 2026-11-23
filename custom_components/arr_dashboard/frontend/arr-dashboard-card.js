@@ -71,6 +71,119 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
  * SPDX-License-Identifier: BSD-3-Clause
  */function r(r){return n({...r,state:true,attribute:false})}
 
+const RADARR_PROFILE = {
+    app: "radarr",
+    noun: "movie",
+    nounTitle: "Movie",
+    plural: "movies",
+    product: "Radarr",
+    defaultTitle: "Movies",
+    defaultIcon: "mdi:movie-open",
+    cardType: "custom:arr-movies-card",
+    idField: "movie_id",
+    commands: {
+        add: "add_movie",
+        get: "get_movie",
+        search: "movie_search",
+        seasonSearch: "season_search",
+        remove: "remove_movie",
+        setMonitored: "set_monitored",
+        setSeasonMonitored: "set_season_monitored",
+        setQuality: "set_quality_profile",
+    },
+};
+const SONARR_PROFILE = {
+    app: "sonarr",
+    noun: "series",
+    nounTitle: "Series",
+    plural: "series",
+    product: "Sonarr",
+    defaultTitle: "Series",
+    defaultIcon: "mdi:television",
+    cardType: "custom:arr-series-card",
+    idField: "series_id",
+    commands: {
+        add: "add_series",
+        get: "get_series",
+        search: "series_search",
+        seasonSearch: "season_search",
+        remove: "remove_series",
+        setMonitored: "set_series_monitored",
+        setSeasonMonitored: "set_season_monitored",
+        setQuality: "set_series_quality_profile",
+    },
+};
+function profileFor(app) {
+    switch (app) {
+        case "radarr":
+            return RADARR_PROFILE;
+        case "sonarr":
+            return SONARR_PROFILE;
+        default: {
+            const _never = app;
+            return _never;
+        }
+    }
+}
+function isSeriesCardType(type) {
+    return (type ?? "").includes("arr-series-card");
+}
+const MONITOR_MODES = [
+    "all",
+    "future",
+    "missing",
+    "existing",
+    "firstSeason",
+    "latestSeason",
+    "none",
+];
+function isMonitorMode(value) {
+    return (value === "all" ||
+        value === "future" ||
+        value === "missing" ||
+        value === "existing" ||
+        value === "firstSeason" ||
+        value === "latestSeason" ||
+        value === "none");
+}
+function monitorLabel(mode) {
+    switch (mode) {
+        case "all":
+            return "All episodes";
+        case "future":
+            return "Future episodes";
+        case "missing":
+            return "Missing episodes";
+        case "existing":
+            return "Existing episodes";
+        case "firstSeason":
+            return "First season";
+        case "latestSeason":
+            return "Latest season";
+        case "none":
+            return "None";
+        default: {
+            const _never = mode;
+            return _never;
+        }
+    }
+}
+function seriesRunLabel(status) {
+    const value = String(status ?? "").toLowerCase();
+    if (value === "continuing")
+        return "Continuing";
+    if (value === "ended")
+        return "Ended";
+    return "";
+}
+function episodeCode(seasonNumber, episodeNumber) {
+    if (seasonNumber == null || episodeNumber == null)
+        return "";
+    const season = String(seasonNumber).padStart(2, "0");
+    const episode = String(episodeNumber).padStart(2, "0");
+    return `S${season}E${episode}`;
+}
+
 /** Register a custom element once. Lovelace may import this module more than once. */
 function defineElement(name, ctor) {
     const attempt = () => {
@@ -123,7 +236,7 @@ function confirmScreenId(kind, layoutTablet) {
         }
     }
 }
-function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, setDeleteFiles, setBlockRelease, setSearchAgain, setRemoveFromClient, setAddImportExclusion) {
+function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, setDeleteFiles, setBlockRelease, setSearchAgain, setRemoveFromClient, setAddImportExclusion, copy = { product: "Radarr", noun: "movie" }) {
     if (!confirm?.kind)
         return A;
     const p = confirm.payload;
@@ -143,7 +256,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
         <p>
           This deletes <strong>${title}${year ? ` (${year})` : ""}</strong>
           ${quality ? ` · ${quality}` : ""}
-          ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
+          ${size ? ` · ${formatSize(size)}` : ""} from disk. ${copy.product} then
           searches for a new copy.
         </p>
         <p>You can’t watch it until the new download finishes.</p>
@@ -167,13 +280,13 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
             heading = `Remove ${title}?`;
             body = b `
         <p>
-          Radarr stops tracking this movie.
+          ${copy.product} stops tracking this ${copy.noun}.
           <strong>The files stay on disk</strong> unless you tick the box below.
         </p>
       `;
             actionLabel = confirm.deleteFiles
-                ? "Remove movie & delete files"
-                : "Remove movie";
+                ? `Remove ${copy.noun} & delete files`
+                : `Remove ${copy.noun}`;
             options = b `
         <label>
           <input
@@ -181,7 +294,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
             .checked=${confirm.deleteFiles ?? false}
             @change=${(e) => setDeleteFiles(e.target.checked)}
           />
-          Also delete the movie files
+          Also delete the ${copy.noun} files
           ${size ? `(${formatSize(size)})` : ""}
         </label>
         <p class="hint-muted">Leave unticked to keep the files.</p>
@@ -229,7 +342,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
             body = b `
         <p>
           <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
-          the queue. Radarr may grab the same release again.
+          the queue. ${copy.product} may grab the same release again.
         </p>
       `;
             actionLabel = "Remove download";
@@ -247,7 +360,7 @@ function renderConfirmDialog(confirm, busy, layoutTablet, onCancel, onConfirm, s
         case "m06":
             heading = "Grab a rejected release?";
             body = b `
-        <p>Radarr rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
+        <p>${copy.product} rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
         <p class="mono">${p.releaseName ?? ""} · ${formatSize(p.size)}</p>
       `;
             actionLabel = "Grab anyway";
@@ -325,6 +438,14 @@ function formatBytes(bytes) {
     if (bytes >= 1e6)
         return `${(bytes / 1e6).toFixed(0)} MB`;
     return `${bytes} B`;
+}
+function formatAirDate(iso) {
+    if (!iso)
+        return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime()))
+        return iso;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 function formatRelative(iso) {
     if (!iso)
@@ -453,12 +574,12 @@ function profileSummaryLine(profile) {
     return `${lowest}–${highest}`;
 }
 
-function renderIssuesPanel(health, disks, config, offline) {
+function renderIssuesPanel(health, disks, config, offline, product = "Radarr") {
     const issueCount = health.filter((h) => h.type === "warning" || h.type === "error").length;
     const intro = offline
-        ? "Can't reach Radarr right now."
+        ? `Can't reach ${product} right now.`
         : issueCount > 0
-            ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+            ? `${product} reports ${issueCount} issue(s). Fix them in ${product}'s settings.`
             : "Everything looks good.";
     const link = config.external_link;
     return b `
@@ -470,7 +591,7 @@ function renderIssuesPanel(health, disks, config, offline) {
         ? health.map((h) => b `
                 <p class="status-line">
                   <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                  ${h.source ?? ""} · from Radarr — ${h.message}
+                  ${h.source ?? ""} · from ${product} — ${h.message}
                 </p>
               `)
         : b `<p class="hint-muted">No health warnings.</p>`}
@@ -494,20 +615,20 @@ function renderIssuesPanel(health, disks, config, offline) {
               target="_blank"
               rel="noopener"
             >
-              Open Radarr
+              Open ${product}
             </a>
           `
         : A}
     </div>
   `;
 }
-function renderStatusSheet(open, health, disks, config, onClose) {
+function renderStatusSheet(open, health, disks, config, onClose, product = "Radarr") {
     if (!open)
         return A;
     const link = config.external_link;
     const issueCount = health.filter((h) => h.type === "warning" || h.type === "error").length;
     const intro = issueCount > 0
-        ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+        ? `${product} reports ${issueCount} issue(s). Fix them in ${product}'s settings.`
         : "Everything looks good.";
     return b `
     <div
@@ -518,9 +639,9 @@ function renderStatusSheet(open, health, disks, config, onClose) {
             onClose();
     }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Radarr status">
+      <div class="sheet-panel" role="dialog" aria-label="${product} status">
         <div class="sheet-header">
-          <h2>Radarr status</h2>
+          <h2>${product} status</h2>
           <button class="text" @click=${onClose}>Done</button>
         </div>
         <p class="hint-muted">${intro}</p>
@@ -530,7 +651,7 @@ function renderStatusSheet(open, health, disks, config, onClose) {
         ? health.map((h) => b `
                   <p class="status-line">
                     <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                    ${h.source ?? ""} · from Radarr — ${h.message}
+                    ${h.source ?? ""} · from ${product} — ${h.message}
                   </p>
                 `)
         : b `<p class="hint-muted">No health warnings.</p>`}
@@ -552,7 +673,7 @@ function renderStatusSheet(open, health, disks, config, onClose) {
                 target="_blank"
                 rel="noopener"
               >
-                Open Radarr
+                Open ${product}
               </a>
             `
         : A}
@@ -580,10 +701,17 @@ function renderFailureSheet(title, detail, onClose) {
     </div>
   `;
 }
-function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, rootPath, searchOnAdd, monitored, minAvailability, busy, offline, setProfile, setRoot, setSearchOnAdd, setMonitored, setMinAvail, onCancel, onConfirm) {
+function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, rootPath, searchOnAdd, monitored, minAvailability, busy, offline, setProfile, setRoot, setSearchOnAdd, setMonitored, setMinAvail, onCancel, onConfirm, app = "radarr", monitor = "all", setMonitor = () => undefined) {
     if (!open || !pick)
         return A;
+    const series = app === "sonarr";
     const screen = layoutTablet ? "A04T" : "A04";
+    const searchLabel = series
+        ? "Search for missing episodes"
+        : "Start searching now";
+    const searchHint = series
+        ? "Sonarr looks for missing episodes straight away."
+        : "Radarr looks for a download straight away.";
     return b `
     <div
       class="sheet-backdrop"
@@ -593,7 +721,11 @@ function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, ro
             onCancel();
     }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Add movie">
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-label=${series ? "Add series" : "Add movie"}
+      >
         <h2>Add ${pick.title}${pick.year ? ` (${pick.year})` : ""}</h2>
         <label>
           Quality profile
@@ -621,20 +753,44 @@ function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, ro
               `)}
           </select>
         </label>
-        <details>
-          <summary>More options</summary>
-          <label>
-            Minimum availability
-            <select
-              .value=${minAvailability}
-              @change=${(e) => setMinAvail(e.target.value)}
-            >
-              <option value="announced">Announced</option>
-              <option value="inCinemas">In cinemas</option>
-              <option value="released">Released</option>
-            </select>
-          </label>
-        </details>
+        ${series
+        ? b `
+              <label>
+                Monitor
+                <select
+                  data-field="monitor"
+                  aria-label="Monitor"
+                  .value=${monitor}
+                  @change=${(e) => {
+            const next = e.target.value;
+            if (isMonitorMode(next))
+                setMonitor(next);
+        }}
+                >
+                  ${MONITOR_MODES.map((mode) => b `
+                      <option value=${mode} ?selected=${mode === monitor}>
+                        ${monitorLabel(mode)}
+                      </option>
+                    `)}
+                </select>
+              </label>
+            `
+        : b `
+              <details>
+                <summary>More options</summary>
+                <label>
+                  Minimum availability
+                  <select
+                    .value=${minAvailability}
+                    @change=${(e) => setMinAvail(e.target.value)}
+                  >
+                    <option value="announced">Announced</option>
+                    <option value="inCinemas">In cinemas</option>
+                    <option value="released">Released</option>
+                  </select>
+                </label>
+              </details>
+            `}
         <label>
           <input
             type="checkbox"
@@ -642,30 +798,34 @@ function renderAddSheet(open, layoutTablet, pick, profiles, roots, profileId, ro
             .checked=${searchOnAdd}
             @change=${(e) => setSearchOnAdd(e.target.checked)}
           />
-          Start searching now
+          ${searchLabel}
         </label>
-        <p class="hint-muted">Radarr looks for a download straight away.</p>
-        <label>
-          <input
-            type="checkbox"
-            role="switch"
-            .checked=${monitored}
-            @change=${(e) => setMonitored(e.target.checked)}
-          />
-          Monitor this movie
-        </label>
-        <p class="hint-muted">
-          Radarr grabs it when it's released and upgrades it later.
-        </p>
+        <p class="hint-muted">${searchHint}</p>
+        ${series
+        ? A
+        : b `
+              <label>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  .checked=${monitored}
+                  @change=${(e) => setMonitored(e.target.checked)}
+                />
+                Monitor this movie
+              </label>
+              <p class="hint-muted">
+                Radarr grabs it when it's released and upgrades it later.
+              </p>
+            `}
         <div class="dialog-actions">
           <button class="text" @click=${onCancel}>Cancel</button>
           <button
             class="primary"
-            data-action="add-movie"
+            data-action=${series ? "add-series" : "add-movie"}
             ?disabled=${offline || busy}
             @click=${onConfirm}
           >
-            ${busy ? "Adding…" : "Add movie"}
+            ${busy ? "Adding…" : series ? "Add series" : "Add movie"}
           </button>
         </div>
       </div>
@@ -814,8 +974,8 @@ function toastProfile(name, searching) {
 function toastMonitorOn(title) {
     return `Monitoring on for ${title}.`;
 }
-function toastMonitorOff(title) {
-    return `Monitoring off for ${title}. Radarr won't download or upgrade it.`;
+function toastMonitorOff(title, product = "Radarr") {
+    return `Monitoring off for ${title}. ${product} won't download or upgrade it.`;
 }
 function toastDeleteRedownload(title) {
     return `Deleted the file. Searching for a new copy of ${title}…`;
@@ -825,11 +985,11 @@ function toastRemoveMovie(title, deleted) {
         ? `Removed ${title} and deleted its files.`
         : `Removed ${title}.`;
 }
-function toastGone() {
-    return "That movie was already removed.";
+function toastGone(noun = "movie") {
+    return `That ${noun} was already removed.`;
 }
-function toastRadarrBack() {
-    return "Radarr is back.";
+function toastRadarrBack(product = "Radarr") {
+    return `${product} is back.`;
 }
 const FAILURE_VERBS = {
     add_movie: "add the movie",
@@ -841,6 +1001,13 @@ const FAILURE_VERBS = {
     set_monitored: "update monitoring",
     delete_file_redownload: "delete the file",
     remove_movie: "remove the movie",
+    add_series: "add the series",
+    series_search: "start the search",
+    season_search: "search the season",
+    remove_series: "remove the series",
+    set_series_quality_profile: "change the profile",
+    set_series_monitored: "update monitoring",
+    set_season_monitored: "update monitoring",
 };
 
 const cardStyles = i$3 `
@@ -1794,6 +1961,43 @@ const cardStyles = i$3 `
     margin-bottom: 6px;
   }
 
+  .episode-list {
+    margin: 0 12px 12px;
+  }
+
+  .episode-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .episode-when {
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
+  .season-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .season-row .season-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .poster-status,
+  .lookup-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
   .row-section h3,
   .library-heading {
     margin: 14px 12px 8px;
@@ -2177,10 +2381,10 @@ function showToast(el, message, actionText, onAction) {
         },
     }));
 }
-function showActionFailure(el, command, err) {
+function showActionFailure(el, command, err, product = "Radarr") {
     const verb = FAILURE_VERBS[command] ?? "complete the action";
     const message = err instanceof Error ? err.message : String(err);
-    showToast(el, `Couldn't ${verb}. Radarr said: ${message}`, "Details");
+    showToast(el, `Couldn't ${verb}. ${product} said: ${message}`, "Details");
 }
 
 /**
@@ -2313,7 +2517,36 @@ async function callArr(hass, entryId, command, data) {
         data: data ?? {},
     });
 }
-async function resolveEntryId(hass, instance) {
+function asApp(value) {
+    return value === "sonarr" ? "sonarr" : "radarr";
+}
+async function fetchInstances(hass, entryId) {
+    try {
+        const res = (await hass.callWS({
+            type: "arr_dashboard",
+            entry_id: entryId,
+            command: "list_instances",
+            data: {},
+        }));
+        if (!Array.isArray(res?.instances))
+            return undefined;
+        return res.instances.map((row) => ({
+            entry_id: row.entry_id,
+            title: row.title,
+            app: asApp(row.app),
+        }));
+    }
+    catch {
+        return undefined;
+    }
+}
+/**
+ * Bind a card to one config entry.
+ * With no instance name, only an entry of `app` is chosen.
+ * A named entry of the other app is returned with mismatch set.
+ * Entries missing from list_instances count as Radarr.
+ */
+async function resolveArrEntry(hass, instance, app) {
     const entries = (await hass.callWS({
         type: "config_entries/get",
         domain: "arr_dashboard",
@@ -2321,12 +2554,27 @@ async function resolveEntryId(hass, instance) {
     const arr = entries.filter((e) => e.domain === "arr_dashboard");
     if (!arr.length)
         return undefined;
-    if (!instance)
-        return arr[0].entry_id;
-    const match = arr.find((e) => e.entry_id === instance || e.title === instance);
+    const listed = await fetchInstances(hass, arr[0].entry_id);
+    const known = new Map();
+    if (listed) {
+        for (const row of listed)
+            known.set(row.entry_id, asApp(row.app));
+    }
+    const appOf = (entryId) => listed ? (known.get(entryId) ?? "radarr") : undefined;
+    if (!instance) {
+        const match = arr.find((entry) => (appOf(entry.entry_id) ?? "radarr") === app);
+        if (!match)
+            return undefined;
+        return { entryId: match.entry_id, app: appOf(match.entry_id) ?? app, mismatch: false };
+    }
+    const match = arr.find((entry) => entry.entry_id === instance || entry.title === instance);
     if (!match)
         return undefined;
-    return match.entry_id;
+    const listedApp = appOf(match.entry_id);
+    if (listedApp && listedApp !== app) {
+        return { entryId: match.entry_id, app: listedApp, mismatch: true };
+    }
+    return { entryId: match.entry_id, app: listedApp, mismatch: false };
 }
 
 class ArrCardEditor extends i {
@@ -2360,6 +2608,12 @@ class ArrCardEditor extends i {
             : cur.filter((t) => t !== tab);
         if (next.length)
             this._set("tabs", next);
+    }
+    get _series() {
+        return isSeriesCardType(this._config.type);
+    }
+    get _product() {
+        return this._series ? "Sonarr" : "Radarr";
     }
     _toggleChip(chip, on) {
         const cur = [...(this._value("show_header_chips") ?? [])];
@@ -2412,7 +2666,7 @@ class ArrCardEditor extends i {
             </select>
           </label>
           <label>
-            Open Radarr URL (status sheet)
+            Open ${this._product} URL (status sheet)
             <input
               .value=${String(this._value("external_link") === false
             ? ""
@@ -2479,7 +2733,9 @@ class ArrCardEditor extends i {
               @change=${(e) => this._set("recent_days", Number(e.target.value))}
             />
           </label>
-          <p class="hint-muted">Library is always a poster grid of on-disk movies.</p>
+          <p class="hint-muted">
+            Library is always a poster grid of on-disk ${this._series ? "series" : "movies"}.
+          </p>
           <label>
             Default sort
             <select
@@ -2513,20 +2769,44 @@ class ArrCardEditor extends i {
         })}
             />
           </label>
-          <label>
-            Minimum availability
-            <select
-              .value=${String(ad.minimum_availability ?? "released")}
-              @change=${(e) => this._set("add_defaults", {
-            ...ad,
-            minimum_availability: e.target.value,
-        })}
-            >
-              <option value="announced">Announced</option>
-              <option value="inCinemas">In cinemas</option>
-              <option value="released">Released</option>
-            </select>
-          </label>
+          ${this._series
+            ? b `
+                <label>
+                  Monitor
+                  <select
+                    data-field="monitor"
+                    .value=${String(ad.monitor ?? "all")}
+                    @change=${(e) => {
+                const next = e.target.value;
+                this._set("add_defaults", {
+                    ...ad,
+                    monitor: isMonitorMode(next) ? next : "all",
+                });
+            }}
+                  >
+                    ${MONITOR_MODES.map((mode) => b `
+                        <option value=${mode}>${monitorLabel(mode)}</option>
+                      `)}
+                  </select>
+                </label>
+              `
+            : b `
+                <label>
+                  Minimum availability
+                  <select
+                    .value=${String(ad.minimum_availability ?? "released")}
+                    @change=${(e) => this._set("add_defaults", {
+                ...ad,
+                minimum_availability: e.target
+                    .value,
+            })}
+                  >
+                    <option value="announced">Announced</option>
+                    <option value="inCinemas">In cinemas</option>
+                    <option value="released">Released</option>
+                  </select>
+                </label>
+              `}
           <label>
             <input
               type="checkbox"
@@ -2536,16 +2816,10 @@ class ArrCardEditor extends i {
             search_on_add: e.target.checked,
         })}
             />
-            Start searching now (default for Add movie)
+            ${this._series
+            ? "Search for missing episodes (default for Add series)"
+            : "Start searching now (default for Add movie)"}
           </label>
-
-          <section data-screen="S01" class="sonarr-preview">
-            <h3>Sonarr (later)</h3>
-            <p class="hint">
-              Same card will support TV series with seasons and episodes (spec
-              §15). Radarr v1 uses the screens above.
-            </p>
-          </section>
 
           <h3>Safety</h3>
           <label>
@@ -2558,7 +2832,7 @@ class ArrCardEditor extends i {
           </label>
           <p class="hint">
             Hides buttons only. It doesn't change who is allowed to do what in
-            Radarr.
+            ${this._product}.
           </p>
       </div>
     `;
@@ -2605,6 +2879,8 @@ function queueNeedsAttention(item) {
 class ArrDashboardCard extends i {
     constructor() {
         super(...arguments);
+        this.app = "radarr";
+        this._mismatch = false;
         this._tab = "library";
         this._loading = true;
         this._confirm = null;
@@ -2625,6 +2901,9 @@ class ArrDashboardCard extends i {
         this._libraryLoading = false;
         this._libraryLoadingMore = false;
         this._addUpcoming = [];
+        this._upcomingEpisodes = [];
+        this._addRecent = [];
+        this._addMonitor = "all";
         this._lookupLib = {};
         this._queuePosters = {};
         this._compact = false;
@@ -2657,13 +2936,18 @@ class ArrDashboardCard extends i {
             return nodes;
         };
     }
+    get _profile() {
+        return profileFor(this.app);
+    }
     setConfig(config) {
         if (!config.type) {
             throw new Error("Invalid configuration");
         }
+        const prevInstance = this.config?.instance;
+        const profile = this._profile;
         this.config = {
-            title: "Movies",
-            icon: "mdi:movie-open",
+            title: profile.defaultTitle,
+            icon: profile.defaultIcon,
             tabs: ["add", "downloading", "library", "issues"],
             default_tab: "library",
             compact: "auto",
@@ -2677,13 +2961,19 @@ class ArrDashboardCard extends i {
             library_filter: "downloaded",
             external_link: false,
             ...config,
-            type: config.type || "custom:arr-card",
+            type: config.type || profile.cardType,
         };
         this._tab = this.config.default_tab ?? "library";
         this._librarySort = this.config.library_sort ?? "title";
         const ad = this.config.add_defaults ?? {};
         this._addSearchOn = ad.search_on_add !== false;
         this._addMinAvail = ad.minimum_availability ?? "released";
+        this._addMonitor = isMonitorMode(ad.monitor) ? ad.monitor : "all";
+        if (this.hass && this.isConnected && prevInstance !== this.config.instance) {
+            this._mismatch = false;
+            this._configError = undefined;
+            void this._bootstrap();
+        }
     }
     connectedCallback() {
         super.connectedCallback();
@@ -2737,23 +3027,40 @@ class ArrDashboardCard extends i {
             this._teardownLibrarySentinel();
         }
     }
+    /** Explicit app on get_state wins. Otherwise list_instances, then missing means Radarr. */
+    _stateAppMismatch(data) {
+        if (data.app === "sonarr" || data.app === "radarr") {
+            return data.app !== this.app;
+        }
+        if (this._listedApp)
+            return this._listedApp !== this.app;
+        return this.app !== "radarr";
+    }
     async _bootstrap() {
         if (!this.hass)
             return;
         try {
-            const eid = await resolveEntryId(this.hass, this.config?.instance);
-            if (!eid) {
-                this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+            const resolved = await resolveArrEntry(this.hass, this.config?.instance, this.app);
+            if (!resolved) {
+                this._configError = `No ${this._profile.product} instance called "${this.config.instance ?? ""}".`;
                 this._loading = false;
                 return;
             }
-            this._entryId = eid;
+            this._entryId = resolved.entryId;
+            this._listedApp = resolved.app;
+            if (resolved.mismatch) {
+                this._mismatch = true;
+                this._state = undefined;
+                this._libraryItems = [];
+                this._loading = false;
+                return;
+            }
+            this._mismatch = false;
             await this._refresh();
             this._schedulePoll();
         }
         catch {
-            this._configError =
-                "Movies card can't start. Check the Arr integration in Settings.";
+            this._configError = `${this._profile.defaultTitle} card can't start. Check the Arr integration in Settings.`;
             this._loading = false;
         }
     }
@@ -2777,6 +3084,13 @@ class ArrDashboardCard extends i {
             const data = (await callArr(this.hass, this._entryId, "get_state", {
                 scope,
             }));
+            if (this._stateAppMismatch(data)) {
+                this._mismatch = true;
+                this._state = undefined;
+                this._libraryItems = [];
+                return;
+            }
+            this._mismatch = false;
             const wasOff = this._offline;
             if (queueOnly && this._state) {
                 this._state = {
@@ -2832,11 +3146,40 @@ class ArrDashboardCard extends i {
             }
         }));
     }
+    _queueMediaId(row) {
+        switch (this.app) {
+            case "sonarr":
+                return row.series?.id;
+            case "radarr":
+                return row.movie?.id;
+            default: {
+                const _never = this.app;
+                return _never;
+            }
+        }
+    }
+    _queueTitle(row) {
+        switch (this.app) {
+            case "sonarr": {
+                const series = row.series?.title ?? row.title ?? "Download";
+                const episodeNumber = row.episode?.episodeNumber ?? row.episodeNumber;
+                const code = episodeCode(row.seasonNumber, episodeNumber);
+                const episodeTitle = row.episode?.title;
+                return [series, code, episodeTitle].filter((part) => part).join(" · ");
+            }
+            case "radarr":
+                return row.movie?.title ?? row.title ?? "Download";
+            default: {
+                const _never = this.app;
+                return _never;
+            }
+        }
+    }
     _queuePosterPath(row) {
-        const movieId = row.movie?.id;
-        if (!movieId || !this._entryId)
+        const mediaId = this._queueMediaId(row);
+        if (!mediaId || !this._entryId)
             return "";
-        return `/api/arr_dashboard/${this._entryId}/poster/${movieId}`;
+        return `/api/arr_dashboard/${this._entryId}/poster/${mediaId}`;
     }
     async _hydrateQueuePosters() {
         if (!this.hass || !this._entryId)
@@ -2845,7 +3188,7 @@ class ArrDashboardCard extends i {
         const next = { ...this._queuePosters };
         let changed = false;
         await Promise.all(rows.map(async (row) => {
-            const movieId = row.movie?.id;
+            const movieId = this._queueMediaId(row);
             if (!movieId || next[movieId])
                 return;
             const path = this._queuePosterPath(row);
@@ -2996,12 +3339,40 @@ class ArrDashboardCard extends i {
             const res = (await this._ws("library_upcoming", {
                 days: this.config.upcoming_days ?? 30,
             }));
-            await this._signMoviePosters(res.items);
-            this._addUpcoming = res.items;
+            if (this.app === "sonarr") {
+                this._upcomingEpisodes = (res.items ?? []);
+                this._addUpcoming = [];
+                await this._loadRecentSeries();
+            }
+            else {
+                const movies = (res.items ?? []);
+                await this._signMoviePosters(movies);
+                this._addUpcoming = movies;
+                this._upcomingEpisodes = [];
+                this._addRecent = [];
+            }
         }
         catch {
             this._addUpcoming = [];
+            this._upcomingEpisodes = [];
+            this._addRecent = [];
         }
+    }
+    async _loadRecentSeries() {
+        const full = (await this._ws("get_state", { scope: "full" }));
+        const items = full.series ?? [];
+        const days = this.config.recent_days ?? 7;
+        const since = Date.now() - days * 86400000;
+        const recent = items
+            .filter((item) => {
+            if (!item.added)
+                return false;
+            return new Date(item.added).getTime() >= since;
+        })
+            .sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""))
+            .slice(0, 12);
+        await this._signMoviePosters(recent);
+        this._addRecent = recent;
     }
     async _refreshLookupLibraryFlags() {
         if (!this._entryId || !this._lookupResults.length) {
@@ -3010,18 +3381,32 @@ class ArrDashboardCard extends i {
         }
         const next = {};
         await Promise.all(this._lookupResults.map(async (r) => {
-            const key = String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
-            const res = (await this._ws("library_match", {
-                tmdbId: r.tmdbId,
-                title: r.title,
-                year: r.year,
-            }));
-            if (res.movie)
-                next[key] = res.movie;
+            const key = this._lookupLibKey(r);
+            if (this.app === "sonarr") {
+                const res = (await this._ws("library_match", {
+                    tvdbId: r.tvdbId,
+                    title: r.title,
+                    year: r.year,
+                }));
+                if (res.series)
+                    next[key] = res.series;
+            }
+            else {
+                const res = (await this._ws("library_match", {
+                    tmdbId: r.tmdbId,
+                    title: r.title,
+                    year: r.year,
+                }));
+                if (res.movie)
+                    next[key] = res.movie;
+            }
         }));
         this._lookupLib = next;
     }
     _lookupLibKey(r) {
+        if (this.app === "sonarr") {
+            return String(r.tvdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
+        }
         return String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
     }
     _queueRecords() {
@@ -3075,6 +3460,7 @@ class ArrDashboardCard extends i {
         this._addSearchOn = defaults.search_on_add !== false;
         this._addMonitored = true;
         this._addMinAvail = defaults.minimum_availability ?? "released";
+        this._addMonitor = isMonitorMode(defaults.monitor) ? defaults.monitor : "all";
         this._addSheetOpen = true;
         this._addPhase = "sheet";
     }
@@ -3084,17 +3470,31 @@ class ArrDashboardCard extends i {
         this._addBusy = true;
         try {
             const r = this._addPick;
-            await this._ws("add_movie", {
-                title: r.title,
-                year: r.year,
-                tmdbId: r.tmdbId,
-                imdbId: r.imdbId,
-                quality_profile_id: this._addProfileId,
-                root_folder_path: this._addRootPath,
-                search_on_add: this._addSearchOn,
-                monitored: this._addMonitored,
-                minimum_availability: this._addMinAvail,
-            });
+            if (this.app === "sonarr") {
+                await this._ws(this._profile.commands.add, {
+                    title: r.title,
+                    year: r.year,
+                    tvdbId: r.tvdbId,
+                    imdbId: r.imdbId,
+                    quality_profile_id: this._addProfileId,
+                    root_folder_path: this._addRootPath,
+                    search_on_add: this._addSearchOn,
+                    monitor: this._addMonitor,
+                });
+            }
+            else {
+                await this._ws(this._profile.commands.add, {
+                    title: r.title,
+                    year: r.year,
+                    tmdbId: r.tmdbId,
+                    imdbId: r.imdbId,
+                    quality_profile_id: this._addProfileId,
+                    root_folder_path: this._addRootPath,
+                    search_on_add: this._addSearchOn,
+                    monitored: this._addMonitored,
+                    minimum_availability: this._addMinAvail,
+                });
+            }
             showToast(this, toastAdded(String(r.title), this._addSearchOn));
             this._addSheetOpen = false;
             this._addPick = undefined;
@@ -3104,7 +3504,7 @@ class ArrDashboardCard extends i {
             await this._refresh();
         }
         catch (err) {
-            this._fail("add_movie", err);
+            this._fail(this._profile.commands.add, err);
         }
         finally {
             this._addBusy = false;
@@ -3113,7 +3513,20 @@ class ArrDashboardCard extends i {
     async _openMovieDetail(m) {
         this._selectedMovie = m;
         try {
-            const res = (await this._ws("get_movie", { movie_id: m.id }));
+            if (this.app === "sonarr") {
+                const res = (await this._ws(this._profile.commands.get, {
+                    series_id: m.id,
+                }));
+                this._detailExtra = {
+                    ...(res.series ?? {}),
+                    seasons: res.seasons ?? res.series?.seasons ?? [],
+                    grabbed_history: res.grabbed_history ?? [],
+                };
+                return;
+            }
+            const res = (await this._ws(this._profile.commands.get, {
+                movie_id: m.id,
+            }));
             this._detailExtra = {
                 ...res.movie,
                 grabbed_history: res.grabbed_history ?? [],
@@ -3133,13 +3546,15 @@ class ArrDashboardCard extends i {
         this._manualMovieId = movieId;
         this._releaseBusy = true;
         try {
-            const res = (await this._ws("release_search", { movie_id: movieId }));
+            const res = (await this._ws("release_search", {
+                [this._profile.idField]: movieId,
+            }));
             const releases = res.releases ?? [];
             this._releaseCache.set(movieId, { at: now, releases });
             this._releases = releases;
         }
         catch (err) {
-            this._fail("movie_search", err);
+            this._fail(this._profile.commands.search, err);
             this._releases = [];
         }
         finally {
@@ -3150,8 +3565,20 @@ class ArrDashboardCard extends i {
         if (this._configError) {
             return b `
         <ha-card data-screen="G03">
-          <p><strong>Movies card can't start</strong></p>
+          <p><strong>${this._profile.defaultTitle} card can't start</strong></p>
           <p>${this._configError}</p>
+        </ha-card>
+      `;
+        }
+        if (this._mismatch) {
+            const other = this.app === "sonarr" ? "Radarr" : "Sonarr";
+            return b `
+        <ha-card data-screen="G03" data-mismatch="true">
+          <p><strong>Wrong instance</strong></p>
+          <p>
+            This ${this._profile.nounTitle} card is pointed at ${other}. Choose a
+            ${this._profile.product} instance.
+          </p>
         </ha-card>
       `;
         }
@@ -3202,20 +3629,20 @@ class ArrDashboardCard extends i {
             ? b `<span hidden data-screen="M07" aria-hidden="true"></span>`
             : A}
 
-        ${renderStatusSheet(this._statusOpen, this._state?.health ?? [], this._state?.disk_space ?? [], cfg, () => (this._statusOpen = false))}
+        ${renderStatusSheet(this._statusOpen, this._state?.health ?? [], this._state?.disk_space ?? [], cfg, () => (this._statusOpen = false), this._profile.product)}
         ${renderFailureSheet("Failure details", this._failureDetail, () => (this._failureDetail = ""))}
         ${renderAddSheet(this._addSheetOpen, this._layoutTablet, this._addPick, this._state?.quality_profiles ?? [], this._state?.root_folders ?? [], this._addProfileId, this._addRootPath, this._addSearchOn, this._addMonitored, this._addMinAvail, this._addBusy, this._offline, (id) => (this._addProfileId = id), (path) => (this._addRootPath = path), (v) => (this._addSearchOn = v), (v) => (this._addMonitored = v), (v) => (this._addMinAvail = v), () => {
             this._addSheetOpen = false;
             this._addPhase = "results";
-        }, () => void this._confirmAddMovie())}
+        }, () => void this._confirmAddMovie(), this.app, this._addMonitor, (mode) => (this._addMonitor = mode))}
         ${renderQualitySheet(this._qualityOpen, this._selectedMovie?.title, this._selectedMovie?.year, this._state?.quality_profiles ?? [], this._selectedMovie?.qualityProfileId, this._qualityPendingId, this._qualitySearch, this._qualityBusy, (v) => (this._qualitySearch = v), (id) => (this._qualityPendingId = id), () => void this._saveQualityProfile(), () => (this._qualityOpen = false))}
         ${this._queueOverflow
-            ? renderQueueOverflowSheet(true, this._queueOverflow.movie?.title ?? this._queueOverflow.title ?? "", this._queueOverflow.movie?.year, this._hideDestructive, this._offline, () => (this._queueOverflow = undefined), () => {
+            ? renderQueueOverflowSheet(true, this._queueTitle(this._queueOverflow), this.app === "sonarr" ? undefined : this._queueOverflow.movie?.year, this._hideDestructive, this._offline, () => (this._queueOverflow = undefined), () => {
                 const row = this._queueOverflow;
                 this._queueOverflow = undefined;
                 if (row) {
                     this._openConfirm("d04b", {
-                        title: row.movie?.title ?? row.title,
+                        title: this._queueTitle(row),
                         queue_id: row.id,
                     });
                 }
@@ -3224,8 +3651,8 @@ class ArrDashboardCard extends i {
                 this._queueOverflow = undefined;
                 if (row) {
                     this._openConfirm("d04", {
-                        title: row.movie?.title ?? row.title,
-                        year: row.movie?.year,
+                        title: this._queueTitle(row),
+                        year: this.app === "sonarr" ? undefined : row.movie?.year,
                         queue_id: row.id,
                     });
                 }
@@ -3246,7 +3673,7 @@ class ArrDashboardCard extends i {
         }, (v) => {
             if (this._confirm)
                 this._confirm = { ...this._confirm, addImportExclusion: v };
-        })}
+        }, { product: this._profile.product, noun: this._profile.noun })}
         <div class="live-region" aria-live="polite"></div>
       </ha-card>
     `;
@@ -3295,7 +3722,7 @@ class ArrDashboardCard extends i {
         const screen = this._layoutTablet ? "G01T" : "G01";
         return b `
       <div class="banner" role="alert" data-screen=${screen}>
-        <strong>Can't reach Radarr.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
+        <strong>Can't reach ${this._profile.product}.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
         Actions are off until it's back. Retrying every 30 s.
         <button class="text" @click=${() => void this._refresh()}>Retry</button>
         <button class="text" @click=${() => this._switchTab("issues")}>
@@ -3395,7 +3822,7 @@ class ArrDashboardCard extends i {
                   @scroll=${this._onLibraryScroll}
                 ></arr-virtual-list>
               `
-            : b `<p>No movies match your filters.</p>`}
+            : b `<p>No ${this._profile.plural} match your filters.</p>`}
           ${this._libraryItems.length < this._libraryTotal
             ? b `<div data-library-sentinel class="library-load-sentinel"></div>`
             : A}
@@ -3417,16 +3844,27 @@ class ArrDashboardCard extends i {
           alt=""
           loading="lazy"
         />
-        <span class="poster-caption">${m.title}</span>
+        <span class="poster-caption">
+          ${m.title}
+          ${this.app === "sonarr"
+            ? b `<span class="poster-status"
+                >${this._seriesCaption(m)}</span
+              >`
+            : A}
+        </span>
       </button>
     `;
+    }
+    _seriesCaption(series) {
+        const run = seriesRunLabel(series.status);
+        return [series.year, run].filter((part) => part).join(" · ");
     }
     _libraryItem(m) {
         return b `
       <button
         class="poster-btn"
         role="listitem"
-        aria-label=${m.title ?? "Movie"}
+        aria-label=${m.title ?? this._profile.nounTitle}
         @click=${() => void this._openMovieDetail(m)}
       >
         <img
@@ -3434,7 +3872,14 @@ class ArrDashboardCard extends i {
           alt=""
           loading="lazy"
         />
-        <span class="poster-caption">${m.title}</span>
+        <span class="poster-caption">
+          ${m.title}
+          ${this.app === "sonarr"
+            ? b `<span class="poster-status"
+                >${this._seriesCaption(m)}</span
+              >`
+            : A}
+        </span>
       </button>
     `;
     }
@@ -3442,7 +3887,7 @@ class ArrDashboardCard extends i {
         if (this._loading) {
             return b `<div data-screen="I02" class="skeleton-block"></div>`;
         }
-        return renderIssuesPanel(this._state?.health ?? [], this._state?.disk_space ?? [], this.config, this._offline);
+        return renderIssuesPanel(this._state?.health ?? [], this._state?.disk_space ?? [], this.config, this._offline, this._profile.product);
     }
     _renderDownloading() {
         if (this._loading && !this._state?.queue) {
@@ -3477,7 +3922,7 @@ class ArrDashboardCard extends i {
     `;
     }
     _renderQueueTile(row) {
-        const title = row.movie?.title ?? row.title ?? "Download";
+        const title = this._queueTitle(row);
         const failed = (row.status || "").toLowerCase() === "failed";
         const importAttn = (row.trackedDownloadStatus || "")
             .toLowerCase()
@@ -3485,7 +3930,7 @@ class ArrDashboardCard extends i {
         const hide = this._hideDestructive;
         const pct = queueProgress(row);
         const exiting = this._exitingQueueIds.includes(row.id);
-        const movieId = row.movie?.id;
+        const movieId = this._queueMediaId(row);
         const poster = movieId ? this._queuePosters[movieId] ?? "" : "";
         const metaLine = [
             row.quality?.quality?.name,
@@ -3594,8 +4039,8 @@ class ArrDashboardCard extends i {
       <div data-screen=${screen} class="add-pane">
         <input
           class="search-field"
-          placeholder="Search for a movie to add"
-          aria-label="Search for a movie to add"
+          placeholder="Search for a ${this._profile.noun} to add"
+          aria-label="Search for a ${this._profile.noun} to add"
           ?disabled=${this._offline}
           .value=${this._addQuery}
           @input=${(e) => {
@@ -3603,7 +4048,49 @@ class ArrDashboardCard extends i {
             this._scheduleLookup();
         }}
         />
-        ${libraryUpcoming.length
+        ${this.app === "sonarr" &&
+            this._addPhase === "start" &&
+            !this._addQuery.trim() &&
+            this._upcomingEpisodes.length
+            ? b `
+              <section data-screen="A01" class="row-section">
+                <h3>Upcoming</h3>
+                <div class="episode-list">
+                  ${this._upcomingEpisodes.map((ep) => {
+                const code = episodeCode(ep.seasonNumber, ep.episodeNumber);
+                const label = [ep.seriesTitle, code, ep.title]
+                    .filter((part) => part)
+                    .join(" · ");
+                return b `
+                      <div class="episode-row">
+                        <span>${label}</span>
+                        <span class="episode-when"
+                          >${formatAirDate(ep.airDateUtc)}</span
+                        >
+                      </div>
+                    `;
+            })}
+                </div>
+              </section>
+            `
+            : A}
+        ${this.app === "sonarr" &&
+            this._addPhase === "start" &&
+            !this._addQuery.trim() &&
+            this._addRecent.length
+            ? b `
+              <section class="row-section" data-row="recent">
+                <h3>Recently added</h3>
+                <div
+                  class="coming-grid"
+                  style="--arr-cols: ${this._libraryColumns}"
+                >
+                  ${this._addRecent.map((series) => this._libraryTile(series))}
+                </div>
+              </section>
+            `
+            : A}
+        ${this.app !== "sonarr" && libraryUpcoming.length
             ? b `
               <section data-screen="A01" class="row-section">
                 <h3>Coming soon in your library</h3>
@@ -3627,7 +4114,7 @@ class ArrDashboardCard extends i {
             : A}
         ${this._addPhase === "no_results"
             ? b `
-              <p>No movies found for “${this._addQuery}”</p>
+              <p>No ${this._profile.plural} found for “${this._addQuery}”</p>
               <p class="hint-muted">
                 Check the spelling, or try the original title or the year.
               </p>
@@ -3652,11 +4139,12 @@ class ArrDashboardCard extends i {
                 ${this._lookupResults.map((r) => {
                 const lib = this._lookupLib[this._lookupLibKey(r)];
                 const poster = lookupPosterUrl(r);
-                const title = String(r.title ?? "Movie");
+                const title = String(r.title ?? this._profile.nounTitle);
                 const year = r.year;
                 const label = year != null && year !== ""
                     ? `${title} (${String(year)})`
                     : title;
+                const run = this.app === "sonarr" ? seriesRunLabel(r.status) : "";
                 return b `
                     <article class="lookup-card" role="listitem">
                       ${poster
@@ -3671,7 +4159,10 @@ class ArrDashboardCard extends i {
                           ></div>`}
                       <div class="lookup-title">
                         <span>${label}</span>
-                        ${lookupComingSoon(r)
+                        ${run
+                    ? b `<span class="lookup-status">${run}</span>`
+                    : A}
+                        ${this.app !== "sonarr" && lookupComingSoon(r)
                     ? b `<span class="lookup-soon">Soon</span>`
                     : A}
                       </div>
@@ -3689,11 +4180,13 @@ class ArrDashboardCard extends i {
                     : b `
                               <button
                                 class="primary"
-                                data-action="add-movie"
+                                data-action=${this.app === "sonarr"
+                        ? "add-series"
+                        : "add-movie"}
                                 ?disabled=${this._offline}
                                 @click=${() => this._openAddSheet(r)}
                               >
-                                Add movie
+                                Add ${this._profile.noun}
                               </button>
                             `}
                       </div>
@@ -3706,7 +4199,11 @@ class ArrDashboardCard extends i {
       </div>
     `;
     }
-    _detailBody(m, sidePanel = false) {
+    _detailBody(item, sidePanel = false) {
+        if (this.app === "sonarr") {
+            return this._seriesDetailBody(item, sidePanel);
+        }
+        const m = item;
         const extra = this._detailExtra;
         const hide = this._hideDestructive;
         const size = m.sizeOnDisk;
@@ -3816,11 +4313,149 @@ class ArrDashboardCard extends i {
                 size: m.sizeOnDisk,
             })}
               >
-                Remove movie
+                Remove ${this._profile.noun}
               </button>
             </section>
           `
             : A}
+      </div>
+    `;
+    }
+    _seriesDetailBody(series, sidePanel = false) {
+        const extra = this._detailExtra;
+        const hide = this._hideDestructive;
+        const seasons = (extra?.seasons ??
+            series.seasons ??
+            [])
+            .slice()
+            .sort((a, b) => a.seasonNumber - b.seasonNumber);
+        const run = seriesRunLabel(series.status ?? extra?.status);
+        const episodes = `${series.episodeFileCount ?? 0}/${series.episodeCount ?? 0}`;
+        const screen = sidePanel ? "M01T" : series.hasFile ? "M01" : "M02";
+        return b `
+      <div data-screen=${screen}>
+        <button class="text" @click=${() => this._closeMovieDetail()}>
+          ← Back
+        </button>
+        <h2>${series.title}${series.year ? ` (${series.year})` : ""}</h2>
+        <img
+          class="detail-poster"
+          src=${series.posterUrl ?? ""}
+          alt=""
+          loading="lazy"
+        />
+        <dl class="detail-dl">
+          <dt>Network</dt>
+          <dd>${series.network ?? extra?.network ?? "—"}</dd>
+          <dt>Status</dt>
+          <dd>${run || series.status || "—"}</dd>
+          <dt>Seasons</dt>
+            <dd>${series.seasonCount ?? (seasons.length || "—")}</dd>
+          <dt>Episodes</dt>
+          <dd>${episodes}</dd>
+        </dl>
+        <p class="overview">
+          ${series.overview ?? extra?.overview ?? ""}
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${series.monitored ?? true}
+            ?disabled=${this._offline}
+            @change=${(e) => void this._setMonitored(series.id, e.target.checked, series.title)}
+          />
+          Monitored
+        </label>
+        ${seasons.length
+            ? b `
+              <section>
+                <h3>Seasons</h3>
+                ${seasons.map((season) => this._seasonRow(series, season))}
+              </section>
+            `
+            : A}
+        <div class="detail-actions">
+          <button
+            class="primary"
+            ?disabled=${this._offline}
+            @click=${() => void this._movieSearch(series)}
+          >
+            Search series
+          </button>
+          <button
+            class="primary"
+            data-screen="M04"
+            ?disabled=${this._offline}
+            @click=${() => void this._openManualSearch(series)}
+          >
+            Manual search
+          </button>
+          <button
+            class="text"
+            data-screen="M08"
+            ?disabled=${this._offline}
+            @click=${() => {
+            this._qualityPendingId =
+                this._selectedMovie?.qualityProfileId ??
+                    this._state?.quality_profiles?.[0]?.id;
+            this._qualityOpen = true;
+        }}
+          >
+            Change quality profile
+          </button>
+        </div>
+        ${hide
+            ? A
+            : b `
+              <section>
+                <h3>Fix or remove</h3>
+                <button
+                  class="outline-danger"
+                  data-action="remove-series"
+                  ?disabled=${this._offline}
+                  @click=${() => this._openConfirm("m10", {
+                title: series.title,
+                series_id: series.id,
+            })}
+                >
+                  Remove series
+                </button>
+              </section>
+            `}
+      </div>
+    `;
+    }
+    _seasonRow(series, season) {
+        const name = season.seasonNumber === 0
+            ? "Specials"
+            : `Season ${season.seasonNumber}`;
+        const files = season.episodeFileCount ?? 0;
+        const total = season.episodeCount ?? 0;
+        return b `
+      <div class="season-row">
+        <div class="season-copy">
+          <strong>${name}</strong>
+          <div class="hint-muted">${files}/${total} episodes</div>
+        </div>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label=${`Monitor ${name}`}
+            .checked=${season.monitored ?? false}
+            ?disabled=${this._offline}
+            @change=${(e) => void this._setSeasonMonitored(series.id, season.seasonNumber, e.target.checked)}
+          />
+          Monitor
+        </label>
+        <button
+          class="text"
+          ?disabled=${this._offline}
+          @click=${() => void this._seasonSearch(series.id, season.seasonNumber)}
+        >
+          Search
+        </button>
       </div>
     `;
     }
@@ -3853,7 +4488,7 @@ class ArrDashboardCard extends i {
           class="sheet-panel detail-popup"
           role="dialog"
           aria-modal="true"
-          aria-label=${`${m.title ?? "Movie"} details`}
+          aria-label=${`${m.title ?? this._profile.nounTitle} details`}
           data-screen=${dialogScreen}
         >
           ${this._detailBody(m, false)}
@@ -3902,8 +4537,8 @@ class ArrDashboardCard extends i {
                 ? b `
                 <p>No releases found</p>
                 <p class="hint-muted">
-                  None of your indexers have this movie right now. Radarr keeps
-                  checking while it's monitored.
+                  None of your indexers have this ${this._profile.noun} right now.
+                  ${this._profile.product} keeps checking while it's monitored.
                 </p>
               `
                 : b `
@@ -4005,7 +4640,7 @@ class ArrDashboardCard extends i {
     _fail(command, err) {
         this._failureDetail =
             err instanceof Error ? err.message : String(err);
-        showActionFailure(this, command, err);
+        showActionFailure(this, command, err, this._profile.product);
     }
     _openConfirm(kind, payload) {
         this._confirm = {
@@ -4026,8 +4661,8 @@ class ArrDashboardCard extends i {
         try {
             switch (kind) {
                 case "m10":
-                    await this._ws("remove_movie", {
-                        movie_id: payload.movie_id,
+                    await this._ws(this._profile.commands.remove, {
+                        [this._profile.idField]: payload[this._profile.idField],
                         delete_files: this._confirm.deleteFiles ?? false,
                         add_import_exclusion: this._confirm.addImportExclusion ?? false,
                     });
@@ -4065,8 +4700,13 @@ class ArrDashboardCard extends i {
                     this._manualMovieId = undefined;
                     break;
                 }
-                default:
+                case null:
                     break;
+                default: {
+                    const _exhaustive = kind;
+                    void _exhaustive;
+                    break;
+                }
             }
             if (kind !== "d04" && kind !== "d04b") {
                 await this._refresh();
@@ -4074,12 +4714,16 @@ class ArrDashboardCard extends i {
         }
         catch (err) {
             const cmd = kind === "m10"
-                ? "remove_movie"
+                ? this._profile.commands.remove
                 : kind === "m09"
                     ? "delete_file_redownload"
                     : kind === "m06"
                         ? "grab_release"
-                        : "queue_remove";
+                        : kind === "d04" || kind === "d04b"
+                            ? "queue_remove"
+                            : kind === null
+                                ? "queue_remove"
+                                : neverCommand(kind);
             this._fail(cmd, err);
         }
         finally {
@@ -4102,7 +4746,7 @@ class ArrDashboardCard extends i {
                 output_path: row.outputPath,
                 download_client_id: row.downloadId,
             });
-            showToast(this, toastRetryImport(row.movie?.title ?? "movie"));
+            showToast(this, toastRetryImport(this._queueTitle(row)));
             await this._refresh();
         }
         catch (err) {
@@ -4111,34 +4755,66 @@ class ArrDashboardCard extends i {
     }
     async _setMonitored(movieId, monitored, title) {
         try {
-            await this._ws("set_monitored", { movie_id: movieId, monitored });
+            await this._ws(this._profile.commands.setMonitored, {
+                [this._profile.idField]: movieId,
+                monitored,
+            });
             showToast(this, monitored
-                ? toastMonitorOn(title ?? "Movie")
-                : toastMonitorOff(title ?? "Movie"));
+                ? toastMonitorOn(title ?? this._profile.nounTitle)
+                : toastMonitorOff(title ?? this._profile.nounTitle, this._profile.product));
             await this._refresh();
         }
         catch (err) {
-            this._fail("set_monitored", err);
+            this._fail(this._profile.commands.setMonitored, err);
         }
     }
     async _movieSearch(m) {
         this._searchAgainBusy = true;
         try {
-            await this._ws("movie_search", { movie_id: m.id });
+            await this._ws(this._profile.commands.search, {
+                [this._profile.idField]: m.id,
+            });
             showToast(this, toastSearchAgain(m.title));
         }
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             if (msg.includes("not_found") || msg.includes("gone")) {
-                showToast(this, toastGone());
+                showToast(this, toastGone(this._profile.noun));
                 this._selectedMovie = undefined;
             }
             else {
-                this._fail("movie_search", err);
+                this._fail(this._profile.commands.search, err);
             }
         }
         finally {
             this._searchAgainBusy = false;
+        }
+    }
+    async _seasonSearch(seriesId, seasonNumber) {
+        try {
+            await this._ws(this._profile.commands.seasonSearch, {
+                series_id: seriesId,
+                season_number: seasonNumber,
+            });
+            showToast(this, toastSearchAgain(`season ${seasonNumber}`));
+        }
+        catch (err) {
+            this._fail(this._profile.commands.seasonSearch, err);
+        }
+    }
+    async _setSeasonMonitored(seriesId, seasonNumber, monitored) {
+        try {
+            await this._ws(this._profile.commands.setSeasonMonitored, {
+                series_id: seriesId,
+                season_number: seasonNumber,
+                monitored,
+            });
+            showToast(this, monitored
+                ? toastMonitorOn(`season ${seasonNumber}`)
+                : toastMonitorOff(`season ${seasonNumber}`, this._profile.product));
+        }
+        catch (err) {
+            this._fail(this._profile.commands.setSeasonMonitored, err);
         }
     }
     async _openManualSearch(m) {
@@ -4153,8 +4829,8 @@ class ArrDashboardCard extends i {
         const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
         this._qualityBusy = true;
         try {
-            await this._ws("set_quality_profile", {
-                movie_id: m.id,
+            await this._ws(this._profile.commands.setQuality, {
+                [this._profile.idField]: m.id,
                 quality_profile_id: profileId,
                 search: this._qualitySearch,
             });
@@ -4163,7 +4839,7 @@ class ArrDashboardCard extends i {
             await this._refresh();
         }
         catch (err) {
-            this._fail("set_quality_profile", err);
+            this._fail(this._profile.commands.setQuality, err);
         }
         finally {
             this._qualityBusy = false;
@@ -4183,6 +4859,12 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_entryId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_listedApp", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_mismatch", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_state", void 0);
@@ -4266,6 +4948,15 @@ __decorate([
 ], ArrDashboardCard.prototype, "_addUpcoming", void 0);
 __decorate([
     r()
+], ArrDashboardCard.prototype, "_upcomingEpisodes", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addRecent", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_addMonitor", void 0);
+__decorate([
+    r()
 ], ArrDashboardCard.prototype, "_lookupLib", void 0);
 __decorate([
     r()
@@ -4321,16 +5012,33 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_grabOkScreen", void 0);
+function neverCommand(kind) {
+    return kind;
+}
 defineElement("arr-card", ArrDashboardCard);
 class ArrMoviesCard extends ArrDashboardCard {
 }
+class ArrSeriesCard extends ArrDashboardCard {
+    constructor() {
+        super(...arguments);
+        this.app = "sonarr";
+    }
+}
 defineElement("arr-movies-card", ArrMoviesCard);
+defineElement("arr-series-card", ArrSeriesCard);
 window.customCards =
     window.customCards ?? [];
 window.customCards.push({
     type: "custom:arr-movies-card",
     name: "Arr Dashboard",
     description: "Radarr library, queue, and add card",
+    preview: true,
+    documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
+}, {
+    type: "custom:arr-series-card",
+    name: "Arr Series",
+    icon: "mdi:television",
+    description: "Sonarr library, queue, and add card",
     preview: true,
     documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
 });

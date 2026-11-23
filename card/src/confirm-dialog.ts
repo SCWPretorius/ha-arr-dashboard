@@ -40,6 +40,7 @@ export function renderConfirmDialog(
   setSearchAgain: (v: boolean) => void,
   setRemoveFromClient: (v: boolean) => void,
   setAddImportExclusion: (v: boolean) => void,
+  copy: { product: string; noun: string } = { product: "Radarr", noun: "movie" },
 ) {
   if (!confirm?.kind) return nothing;
 
@@ -62,7 +63,7 @@ export function renderConfirmDialog(
         <p>
           This deletes <strong>${title}${year ? ` (${year})` : ""}</strong>
           ${quality ? ` · ${quality}` : ""}
-          ${size ? ` · ${formatSize(size)}` : ""} from disk. Radarr then
+          ${size ? ` · ${formatSize(size)}` : ""} from disk. ${copy.product} then
           searches for a new copy.
         </p>
         <p>You can’t watch it until the new download finishes.</p>
@@ -87,13 +88,13 @@ export function renderConfirmDialog(
       heading = `Remove ${title}?`;
       body = html`
         <p>
-          Radarr stops tracking this movie.
+          ${copy.product} stops tracking this ${copy.noun}.
           <strong>The files stay on disk</strong> unless you tick the box below.
         </p>
       `;
       actionLabel = confirm.deleteFiles
-        ? "Remove movie & delete files"
-        : "Remove movie";
+        ? `Remove ${copy.noun} & delete files`
+        : `Remove ${copy.noun}`;
       options = html`
         <label>
           <input
@@ -102,7 +103,7 @@ export function renderConfirmDialog(
             @change=${(e: Event) =>
               setDeleteFiles((e.target as HTMLInputElement).checked)}
           />
-          Also delete the movie files
+          Also delete the ${copy.noun} files
           ${size ? `(${formatSize(size)})` : ""}
         </label>
         <p class="hint-muted">Leave unticked to keep the files.</p>
@@ -153,7 +154,7 @@ export function renderConfirmDialog(
       body = html`
         <p>
           <strong>${title}${year ? ` (${year})` : ""}</strong> is removed from
-          the queue. Radarr may grab the same release again.
+          the queue. ${copy.product} may grab the same release again.
         </p>
       `;
       actionLabel = "Remove download";
@@ -172,7 +173,7 @@ export function renderConfirmDialog(
     case "m06":
       heading = "Grab a rejected release?";
       body = html`
-        <p>Radarr rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
+        <p>${copy.product} rejected this release: <strong>${p.reasons ?? ""}</strong>.</p>
         <p class="mono">${p.releaseName ?? ""} · ${formatSize(p.size as number)}</p>
       `;
       actionLabel = "Grab anyway";

@@ -30,8 +30,9 @@ export function showActionFailure(
   el: HTMLElement,
   command: string,
   err: unknown,
+  product = "Radarr",
 ): void {
   const verb = FAILURE_VERBS[command] ?? "complete the action";
   const message = err instanceof Error ? err.message : String(err);
-  showToast(el, `Couldn't ${verb}. Radarr said: ${message}`, "Details");
+  showToast(el, `Couldn't ${verb}. ${product} said: ${message}`, "Details");
 }

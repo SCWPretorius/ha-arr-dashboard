@@ -706,3 +706,309 @@ describe("arr-card hide grab anyway", () => {
     expect(grab).to.be.null;
   });
 });
+
+function seriesHass() {
+  return {
+    callWS: async (msg: Record<string, unknown>) => {
+      if (msg.type === "config_entries/get") {
+        return [
+          { entry_id: "rad", domain: "arr_dashboard", title: "Radarr" },
+          { entry_id: "son", domain: "arr_dashboard", title: "Sonarr" },
+        ];
+      }
+      if (msg.type === "auth/sign_path") {
+        return { path: String(msg.path) };
+      }
+      if (msg.type !== "arr_dashboard") return {};
+      switch (msg.command) {
+        case "list_instances":
+          return {
+            instances: [
+              { entry_id: "rad", title: "Radarr", app: "radarr" },
+              { entry_id: "son", title: "Sonarr", app: "sonarr" },
+            ],
+          };
+        case "get_state":
+          return {
+            reachable: true,
+            app: "sonarr",
+            library_revision: "s:1",
+            queue: {
+              records: [
+                {
+                  id: 7,
+                  status: "downloading",
+                  series: { title: "Dark", id: 4 },
+                  seasonNumber: 1,
+                  episode: { title: "Beginnings", episodeNumber: 2 },
+                  size: 1e9,
+                  sizeleft: 4e8,
+                },
+              ],
+              totalRecords: 1,
+            },
+            queue_count: 1,
+            health: [],
+            disk_space: [],
+            root_folders: [{ id: 1, path: "/tv", freeSpace: 1 }],
+            quality_profiles: [{ id: 3, name: "HD-1080p" }],
+            system: {},
+          };
+        case "library_upcoming":
+          return {
+            items: [
+              {
+                seriesId: 4,
+                seriesTitle: "Dark",
+                seasonNumber: 1,
+                episodeNumber: 2,
+                title: "Beginnings",
+                airDateUtc: "2026-12-01T00:00:00Z",
+              },
+            ],
+          };
+        case "library_page":
+          return {
+            total: 1,
+            revision: "s:1",
+            offset: 0,
+            items: [
+              {
+                id: 4,
+                title: "Dark",
+                year: 2017,
+                status: "ended",
+                hasFile: true,
+                added: new Date().toISOString(),
+                posterUrl: "",
+              },
+            ],
+          };
+        case "library_match":
+          return { series: null };
+        default:
+          return {};
+      }
+    },
+    locale: { language: "en" },
+  };
+}
+
+describe("arr-series-card", () => {
+  it("uses series labels on lookup, downloads, and upcoming", async () => {
+    const el = document.createElement("arr-series-card") as ArrDashboardCard;
+    el.hass = seriesHass() as never;
+    el.setConfig({
+      type: "custom:arr-series-card",
+      tabs: ["add", "downloading"],
+      default_tab: "downloading",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    expect(el.shadowRoot?.textContent).to.contain(
+      "Dark · S01E02 · Beginnings",
+    );
+    expect(el.shadowRoot?.textContent).not.to.contain("Add movie");
+
+    const card = el as unknown as {
+      _tab: string;
+      _addPhase: string;
+      _addQuery: string;
+      _lookupResults: Record<string, unknown>[];
+      _upcomingEpisodes: unknown[];
+      requestUpdate: () => void;
+    };
+    card._tab = "add";
+    card._addPhase = "results";
+    card._addQuery = "Dark";
+    card._lookupResults = [
+      { title: "Dark", year: 2017, tvdbId: 318408, status: "continuing" },
+    ];
+    card._upcomingEpisodes = [
+      {
+        seriesId: 4,
+        seriesTitle: "Dark",
+        seasonNumber: 1,
+        episodeNumber: 2,
+        title: "Beginnings",
+        airDateUtc: "2026-12-01T00:00:00Z",
+      },
+    ];
+    card.requestUpdate();
+    await el.updateComplete;
+    const add = el.shadowRoot?.querySelector('[data-action="add-series"]');
+    expect(add?.textContent?.trim()).to.equal("Add series");
+    expect(el.shadowRoot?.textContent).to.contain("Continuing");
+    expect(el.shadowRoot?.textContent).not.to.contain("Soon");
+  });
+
+  it("shows a monitor field on the add sheet and no minimum availability", async () => {
+    const el = document.createElement("arr-series-card") as ArrDashboardCard;
+    el.hass = seriesHass() as never;
+    el.setConfig({
+      type: "custom:arr-series-card",
+      tabs: ["add"],
+      default_tab: "add",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 60));
+    await el.updateComplete;
+    const card = el as unknown as {
+      _state: object;
+      _openAddSheet: (hit: Record<string, unknown>) => void;
+    };
+    card._state = {
+      quality_profiles: [{ id: 3, name: "HD-1080p" }],
+      root_folders: [{ id: 1, path: "/tv", freeSpace: 1 }],
+    };
+    card._openAddSheet({ title: "Dark", year: 2017, tvdbId: 318408 });
+    await el.updateComplete;
+    const sheet = el.shadowRoot?.querySelector(
+      '[data-screen="A04"], [data-screen="A04T"]',
+    );
+    const monitor = sheet?.querySelector(
+      '[data-field="monitor"]',
+    ) as HTMLSelectElement | null;
+    expect(monitor).to.exist;
+    expect(monitor?.value).to.equal("all");
+    expect(sheet?.textContent).to.contain("Search for missing episodes");
+    expect(sheet?.textContent).to.contain("Future episodes");
+    expect(sheet?.textContent).not.to.contain("Minimum availability");
+    expect(sheet?.textContent).not.to.contain("Monitor this movie");
+  });
+
+  it("shows a mismatch instead of the Radarr library", async () => {
+    const el = document.createElement("arr-series-card") as ArrDashboardCard;
+    el.hass = seriesHass() as never;
+    el.setConfig({
+      type: "custom:arr-series-card",
+      instance: "Radarr",
+      tabs: ["library"],
+      default_tab: "library",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 60));
+    await el.updateComplete;
+    const mismatch = el.shadowRoot?.querySelector("[data-mismatch]");
+    expect(mismatch?.textContent).to.contain("pointed at Radarr");
+    expect(el.shadowRoot?.querySelector("arr-virtual-list")).to.equal(null);
+    expect(el.shadowRoot?.textContent).not.to.contain("Movie");
+  });
+
+  it("recent row uses full series, including shows with no episode files", async () => {
+    const added = new Date().toISOString();
+    const el = document.createElement("arr-series-card") as ArrDashboardCard;
+    el.hass = {
+      callWS: async (msg: Record<string, unknown>) => {
+        if (msg.type === "config_entries/get") {
+          return [{ entry_id: "son", domain: "arr_dashboard", title: "Sonarr" }];
+        }
+        if (msg.type === "auth/sign_path") {
+          return { path: String(msg.path) };
+        }
+        if (msg.type !== "arr_dashboard") return {};
+        const data = (msg.data ?? {}) as Record<string, unknown>;
+        switch (msg.command) {
+          case "list_instances":
+            return {
+              instances: [{ entry_id: "son", title: "Sonarr", app: "sonarr" }],
+            };
+          case "get_state":
+            if (data.scope === "full") {
+              return {
+                reachable: true,
+                app: "sonarr",
+                series: [
+                  {
+                    id: 8,
+                    title: "No Files Yet",
+                    year: 2024,
+                    hasFile: false,
+                    episodeFileCount: 0,
+                    added,
+                    posterUrl: "",
+                  },
+                ],
+                upcoming: [],
+                queue: { records: [], totalRecords: 0 },
+                queue_count: 0,
+                health: [],
+                disk_space: [],
+                root_folders: [],
+                quality_profiles: [],
+                system: {},
+              };
+            }
+            return {
+              reachable: true,
+              app: "sonarr",
+              library_revision: "s:1",
+              queue: { records: [], totalRecords: 0 },
+              queue_count: 0,
+              health: [],
+              disk_space: [],
+              root_folders: [],
+              quality_profiles: [],
+              system: {},
+            };
+          case "library_upcoming":
+            return { items: [] };
+          case "library_page":
+            return {
+              total: 1,
+              revision: "s:1",
+              offset: 0,
+              items: [
+                {
+                  id: 4,
+                  title: "On Disk Only",
+                  hasFile: true,
+                  added,
+                  posterUrl: "",
+                },
+              ],
+            };
+          default:
+            return {};
+        }
+      },
+      locale: { language: "en" },
+    } as never;
+    el.setConfig({
+      type: "custom:arr-series-card",
+      instance: "Sonarr",
+      tabs: ["add"],
+      default_tab: "add",
+      recent_days: 7,
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    const recent = el.shadowRoot?.querySelector('[data-row="recent"]');
+    expect(recent?.textContent).to.contain("No Files Yet");
+    expect(recent?.textContent).not.to.contain("On Disk Only");
+  });
+});
+
+describe("arr-card editor", () => {
+  it("follows the series card type for the monitor default", async () => {
+    const editor = document.createElement("arr-card-editor") as HTMLElement & {
+      setConfig: (config: Record<string, unknown>) => void;
+    };
+    editor.setConfig({ type: "custom:arr-series-card" });
+    document.body.appendChild(editor);
+    await editor.updateComplete;
+    const monitor = editor.querySelector(
+      '[data-field="monitor"]',
+    ) as HTMLSelectElement | null;
+    expect(monitor).to.exist;
+    expect(monitor?.value).to.equal("all");
+    expect(editor.textContent).to.contain("Search for missing episodes");
+    expect(editor.textContent).not.to.contain("Minimum availability");
+  });
+});
