@@ -21,9 +21,14 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_POLL_INTERVAL, CONF_VERIFY_SSL, DEFAULT_POLL_INTERVAL, DOMAIN
-from .radarr.client import RadarrClient
-from .radarr.coordinator import RadarrDataUpdateCoordinator
+from .const import (
+    CONF_APP,
+    CONF_POLL_INTERVAL,
+    CONF_VERIFY_SSL,
+    DEFAULT_POLL_INTERVAL,
+    DOMAIN,
+)
+from .helpers import build_arr_client, build_coordinator, stored_app
 from .views import ArrDashboardPosterView
 from .websocket_api import async_register_websocket_handlers
 
@@ -161,13 +166,15 @@ async def async_setup(hass: HomeAssistant, _config: dict | None = None) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Arr Dashboard from a config entry."""
-    client = RadarrClient(
+    app = stored_app(entry.data.get(CONF_APP))
+    client = build_arr_client(
         hass,
+        app,
         entry.data[CONF_URL],
         entry.data[CONF_API_KEY],
         entry.data.get(CONF_VERIFY_SSL, True),
     )
-    coordinator = RadarrDataUpdateCoordinator(hass, client, entry)
+    coordinator = build_coordinator(hass, app, client, entry)
     poll = entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
     coordinator.update_interval = timedelta(seconds=poll)
 

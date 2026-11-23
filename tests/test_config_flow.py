@@ -18,6 +18,13 @@ from custom_components.arr_dashboard.core.client import (
 from custom_components.arr_dashboard.radarr.client import RadarrClient
 
 
+async def _choose_app(hass: HomeAssistant, flow_id: str, app: str = "radarr"):
+    result = await hass.config_entries.flow.async_configure(flow_id, {"app": app})
+    assert result["type"] == "form"
+    assert result["step_id"] == "connection"
+    return result
+
+
 async def _remove_created_entries(hass: HomeAssistant) -> None:
     for entry in list(hass.config_entries.async_entries(DOMAIN)):
         if entry.state == ConfigEntryState.LOADED:
@@ -41,6 +48,8 @@ async def test_config_flow_success(hass: HomeAssistant, monkeypatch) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] == "form"
+    assert result["step_id"] == "user"
+    result = await _choose_app(hass, result["flow_id"])
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -52,6 +61,7 @@ async def test_config_flow_success(hass: HomeAssistant, monkeypatch) -> None:
     )
     assert result["type"] == "create_entry"
     assert result["title"] == "Radarr"
+    assert result["data"]["app"] == "radarr"
     await _remove_created_entries(hass)
 
 
@@ -64,6 +74,7 @@ async def test_config_flow_auth_fail(hass: HomeAssistant, monkeypatch) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
+    result = await _choose_app(hass, result["flow_id"])
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -84,6 +95,7 @@ async def test_config_flow_old_version(hass: HomeAssistant, monkeypatch) -> None
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
+    result = await _choose_app(hass, result["flow_id"])
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -109,6 +121,7 @@ async def test_config_flow_ssl_connect(hass: HomeAssistant, monkeypatch) -> None
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
+    result = await _choose_app(hass, result["flow_id"])
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -130,6 +143,7 @@ async def test_config_flow_cannot_connect(hass: HomeAssistant, monkeypatch) -> N
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
+    result = await _choose_app(hass, result["flow_id"])
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {

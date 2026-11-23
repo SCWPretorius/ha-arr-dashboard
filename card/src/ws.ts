@@ -1,8 +1,11 @@
+import type { ArrApp } from "./app-profile";
 import type { HomeAssistant } from "./types";
 
 export interface ArrState {
   reachable: boolean;
+  app?: ArrApp;
   movies?: MovieSlim[];
+  series?: SeriesSlim[];
   library_revision?: string;
   queue: { records?: QueueItem[]; totalRecords?: number };
   queue_count: number;
@@ -34,6 +37,54 @@ export interface MovieSlim {
   qualityProfileId?: number;
 }
 
+export interface SeriesEpisode {
+  id: number;
+  seriesId?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  title?: string;
+  hasFile?: boolean;
+  monitored?: boolean;
+}
+
+export interface SeriesSeason {
+  seasonNumber: number;
+  monitored?: boolean;
+  episodeCount?: number;
+  episodeFileCount?: number;
+}
+
+export interface SeriesSlim {
+  id: number;
+  title: string;
+  year?: number;
+  tvdbId?: number;
+  network?: string;
+  status?: string;
+  seasonCount?: number;
+  episodeCount?: number;
+  episodeFileCount?: number;
+  hasFile?: boolean;
+  monitored?: boolean;
+  added?: string;
+  posterUrl?: string;
+  qualityProfileId?: number;
+  path?: string;
+  overview?: string;
+  seasons?: SeriesSeason[];
+}
+
+export interface CalendarEpisode {
+  seriesId: number;
+  seriesTitle: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  airDateUtc?: string;
+}
+
+export type LibraryItem = MovieSlim | SeriesSlim;
+
 export interface QueueItem {
   id: number;
   title?: string;
@@ -45,6 +96,10 @@ export interface QueueItem {
   outputPath?: string;
   downloadId?: string;
   movie?: { title?: string; year?: number; id?: number };
+  series?: { title?: string; id?: number };
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episode?: { title?: string; episodeNumber?: number };
   quality?: { quality?: { name?: string } };
   statusMessages?: unknown;
   errorMessage?: string;
@@ -72,7 +127,21 @@ export interface LibraryPageResult {
   total: number;
   revision: string;
   offset: number;
-  items: MovieSlim[];
+  items: LibraryItem[];
+}
+
+export interface ArrInstanceInfo {
+  entry_id: string;
+  title: string;
+  app: ArrApp;
+}
+
+export interface ResolvedArrEntry {
+  entryId: string;
+  /** App from list_instances. Missing when the command did not identify the entry. */
+  app?: ArrApp;
+  /** Named entry belongs to the other app. */
+  mismatch: boolean;
 }
 
 export interface QualityProfile {
@@ -122,20 +191,82 @@ export async function callArr(
   });
 }
 
-export async function resolveEntryId(
+function asApp(value: unknown): ArrApp {
+  return value === "sonarr" ? "sonarr" : "radarr";
+}
+
+async function fetchInstances(
   hass: HomeAssistant,
-  instance?: string,
-): Promise<string | undefined> {
+  entryId: string,
+): Promise<ArrInstanceInfo[] | undefined> {
+  try {
+    const res = (await hass.callWS({
+      type: "arr_dashboard",
+      entry_id: entryId,
+      command: "list_instances",
+      data: {},
+    })) as { instances?: ArrInstanceInfo[] };
+    if (!Array.isArray(res?.instances)) return undefined;
+    return res.instances.map((row) => ({
+      entry_id: row.entry_id,
+      title: row.title,
+      app: asApp(row.app),
+    }));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Bind a card to one config entry.
+ * With no instance name, only an entry of `app` is chosen.
+ * A named entry of the other app is returned with mismatch set.
+ * Entries missing from list_instances count as Radarr.
+ */
+export async function resolveArrEntry(
+  hass: HomeAssistant,
+  instance: string | undefined,
+  app: ArrApp,
+): Promise<ResolvedArrEntry | undefined> {
   const entries = (await hass.callWS({
     type: "config_entries/get",
     domain: "arr_dashboard",
   })) as ConfigEntryFragment[];
   const arr = entries.filter((e) => e.domain === "arr_dashboard");
   if (!arr.length) return undefined;
-  if (!instance) return arr[0].entry_id;
+
+  const listed = await fetchInstances(hass, arr[0].entry_id);
+  const known = new Map<string, ArrApp>();
+  if (listed) {
+    for (const row of listed) known.set(row.entry_id, asApp(row.app));
+  }
+
+  const appOf = (entryId: string): ArrApp | undefined =>
+    listed ? (known.get(entryId) ?? "radarr") : undefined;
+
+  if (!instance) {
+    const match = arr.find((entry) => (appOf(entry.entry_id) ?? "radarr") === app);
+    if (!match) return undefined;
+    return { entryId: match.entry_id, app: appOf(match.entry_id) ?? app, mismatch: false };
+  }
+
   const match = arr.find(
-    (e) => e.entry_id === instance || e.title === instance,
+    (entry) => entry.entry_id === instance || entry.title === instance,
   );
   if (!match) return undefined;
-  return match.entry_id;
+  const listedApp = appOf(match.entry_id);
+  if (listedApp && listedApp !== app) {
+    return { entryId: match.entry_id, app: listedApp, mismatch: true };
+  }
+  return { entryId: match.entry_id, app: listedApp, mismatch: false };
+}
+
+export async function resolveEntryId(
+  hass: HomeAssistant,
+  instance?: string,
+  app: ArrApp = "radarr",
+): Promise<string | undefined> {
+  const resolved = await resolveArrEntry(hass, instance, app);
+  if (!resolved || resolved.mismatch) return undefined;
+  return resolved.entryId;
 }

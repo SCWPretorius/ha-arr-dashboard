@@ -951,6 +951,43 @@ export const cardStyles = css`
     margin-bottom: 6px;
   }
 
+  .episode-list {
+    margin: 0 12px 12px;
+  }
+
+  .episode-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .episode-when {
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
+  .season-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .season-row .season-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .poster-status,
+  .lookup-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
   .row-section h3,
   .library-heading {
     margin: 14px 12px 8px;

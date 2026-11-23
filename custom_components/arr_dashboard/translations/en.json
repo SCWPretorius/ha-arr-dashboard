@@ -2,32 +2,41 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Radarr",
-        "description": "Enter your Radarr server URL and API key.",
+        "title": "Add Arr server",
+        "description": "Choose Radarr for movies or Sonarr for series. Each one is a separate entry.",
         "data": {
-          "url": "Radarr URL",
+          "app": "App"
+        }
+      },
+      "connection": {
+        "title": "Connect to {app_name}",
+        "description": "Enter the {app_name} URL and API key. The server must be {app_name} 4.0 or newer.",
+        "data": {
+          "url": "URL",
           "api_key": "API key",
           "verify_ssl": "Verify SSL certificate",
           "name": "Name (optional)"
         }
       },
       "reauth_confirm": {
-        "title": "Re-authenticate Radarr",
-        "description": "Radarr rejected the API key. Enter a new key.",
+        "title": "Re-authenticate {app_name}",
+        "description": "{app_name} rejected the API key. Enter a new key for this {app_name} server.",
         "data": {
           "api_key": "API key"
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to Radarr. Check the URL and that Radarr is running.",
+      "cannot_connect": "Could not connect. Check the URL and that the server is running.",
       "invalid_auth": "Invalid API key.",
       "invalid_url": "Enter a full URL starting with http:// or https://.",
-      "old_version": "Radarr must be version 4.0 or newer.",
+      "old_version": "The server must be version 4.0 or newer.",
+      "wrong_app": "That URL is a different Arr app than the one you chose.",
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This Radarr instance is already configured."
+      "already_configured": "This server is already configured.",
+      "reauth_successful": "Authentication updated."
     }
   },
   "options": {

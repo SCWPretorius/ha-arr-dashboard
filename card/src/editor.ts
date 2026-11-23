@@ -1,5 +1,11 @@
 import { LitElement, html } from "lit";
 import { property, state } from "lit/decorators.js";
+import {
+  isMonitorMode,
+  isSeriesCardType,
+  MONITOR_MODES,
+  monitorLabel,
+} from "./app-profile";
 import { defineElement } from "./define-element";
 import type { ArrCardConfig, TabId } from "./types";
 
@@ -41,6 +47,14 @@ export class ArrCardEditor extends LitElement {
       ? [...new Set([...cur, tab])]
       : cur.filter((t) => t !== tab);
     if (next.length) this._set("tabs", next as TabId[]);
+  }
+
+  private get _series(): boolean {
+    return isSeriesCardType(this._config.type);
+  }
+
+  private get _product(): "Sonarr" | "Radarr" {
+    return this._series ? "Sonarr" : "Radarr";
   }
 
   private _toggleChip(chip: "disk" | "queue" | "health", on: boolean): void {
@@ -104,7 +118,7 @@ export class ArrCardEditor extends LitElement {
             </select>
           </label>
           <label>
-            Open Radarr URL (status sheet)
+            Open ${this._product} URL (status sheet)
             <input
               .value=${String(
                 this._value("external_link") === false
@@ -199,7 +213,9 @@ export class ArrCardEditor extends LitElement {
                 )}
             />
           </label>
-          <p class="hint-muted">Library is always a poster grid of on-disk movies.</p>
+          <p class="hint-muted">
+            Library is always a poster grid of on-disk ${this._series ? "series" : "movies"}.
+          </p>
           <label>
             Default sort
             <select
@@ -236,21 +252,47 @@ export class ArrCardEditor extends LitElement {
                 })}
             />
           </label>
-          <label>
-            Minimum availability
-            <select
-              .value=${String(ad.minimum_availability ?? "released")}
-              @change=${(e: Event) =>
-                this._set("add_defaults", {
-                  ...ad,
-                  minimum_availability: (e.target as HTMLSelectElement).value,
-                })}
-            >
-              <option value="announced">Announced</option>
-              <option value="inCinemas">In cinemas</option>
-              <option value="released">Released</option>
-            </select>
-          </label>
+          ${this._series
+            ? html`
+                <label>
+                  Monitor
+                  <select
+                    data-field="monitor"
+                    .value=${String(ad.monitor ?? "all")}
+                    @change=${(e: Event) => {
+                      const next = (e.target as HTMLSelectElement).value;
+                      this._set("add_defaults", {
+                        ...ad,
+                        monitor: isMonitorMode(next) ? next : "all",
+                      });
+                    }}
+                  >
+                    ${MONITOR_MODES.map(
+                      (mode) => html`
+                        <option value=${mode}>${monitorLabel(mode)}</option>
+                      `,
+                    )}
+                  </select>
+                </label>
+              `
+            : html`
+                <label>
+                  Minimum availability
+                  <select
+                    .value=${String(ad.minimum_availability ?? "released")}
+                    @change=${(e: Event) =>
+                      this._set("add_defaults", {
+                        ...ad,
+                        minimum_availability: (e.target as HTMLSelectElement)
+                          .value,
+                      })}
+                  >
+                    <option value="announced">Announced</option>
+                    <option value="inCinemas">In cinemas</option>
+                    <option value="released">Released</option>
+                  </select>
+                </label>
+              `}
           <label>
             <input
               type="checkbox"
@@ -261,16 +303,10 @@ export class ArrCardEditor extends LitElement {
                   search_on_add: (e.target as HTMLInputElement).checked,
                 })}
             />
-            Start searching now (default for Add movie)
+            ${this._series
+              ? "Search for missing episodes (default for Add series)"
+              : "Start searching now (default for Add movie)"}
           </label>
-
-          <section data-screen="S01" class="sonarr-preview">
-            <h3>Sonarr (later)</h3>
-            <p class="hint">
-              Same card will support TV series with seasons and episodes (spec
-              §15). Radarr v1 uses the screens above.
-            </p>
-          </section>
 
           <h3>Safety</h3>
           <label>
@@ -287,7 +323,7 @@ export class ArrCardEditor extends LitElement {
           </label>
           <p class="hint">
             Hides buttons only. It doesn't change who is allowed to do what in
-            Radarr.
+            ${this._product}.
           </p>
       </div>
     `;

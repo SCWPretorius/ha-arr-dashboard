@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from ..const import MIN_ARR_VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +28,45 @@ class ArrInvalidAuth(ArrClientError):
 
 class ArrNotFound(ArrClientError):
     """Resource not found."""
+
+
+class ArrWrongApp(ArrClientError):
+    """Server appName does not match the selected Arr app."""
+
+
+def parse_arr_version(version: str) -> tuple[int, ...]:
+    """Parse a Servarr version string into a comparable tuple."""
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version)
+    if not match:
+        return (0, 0, 0)
+    return tuple(int(part) for part in match.groups())
+
+
+async def async_validate_arr_status(
+    client: ArrClientBase,
+    *,
+    expected_app: str,
+    min_version: tuple[int, ...] = MIN_ARR_VERSION,
+) -> dict[str, Any]:
+    """Check auth, appName, and minimum version via system status."""
+    try:
+        status = await client.get("/api/v3/system/status")
+    except ArrInvalidAuth:
+        raise
+    except Exception as err:
+        raise ArrCannotConnect(str(err)) from err
+    app_name = str(status.get("appName") or "")
+    if app_name.lower() != expected_app.lower():
+        reported = app_name or "an unknown app"
+        raise ArrWrongApp(
+            f"{expected_app} was selected but the server reports {reported}"
+        )
+    version = parse_arr_version(str(status.get("version") or "0.0.0"))
+    if version < min_version:
+        raise ArrClientError(
+            f"{expected_app} version {status.get('version')} is below 4.0.0"
+        )
+    return status
 
 
 class ArrClientBase:
@@ -108,3 +150,18 @@ class ArrClientBase:
 
     async def delete(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         return await self.request("DELETE", path, params=params)
+
+    async def fetch_poster_bytes(self, media_id: int) -> tuple[bytes, str]:
+        """Fetch poster bytes from mediacover without exposing the API key."""
+        session = async_get_clientsession(self._hass, verify_ssl=self._verify_ssl)
+        url = f"{self._base_url}/api/v3/mediacover/{media_id}/poster.jpg"
+        async with session.get(
+            url,
+            headers=self._headers(),
+            timeout=aiohttp.ClientTimeout(total=30),
+            allow_redirects=False,
+        ) as resp:
+            if resp.status != 200:
+                raise ArrClientError(f"Poster fetch failed: HTTP {resp.status}")
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            return await resp.read(), content_type

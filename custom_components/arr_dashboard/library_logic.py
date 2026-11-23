@@ -5,12 +5,21 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from .const import APP_SONARR
+
 LibrarySort = str  # "title" | "added" | "year"
+
+
+def library_source(coordinator_data: Any) -> list[dict[str, Any]]:
+    """Movies for a Radarr entry, series for a Sonarr entry."""
+    if getattr(coordinator_data, "app", None) == APP_SONARR:
+        return list(getattr(coordinator_data, "series", None) or [])
+    return list(getattr(coordinator_data, "movies", None) or [])
 
 
 def library_revision(coordinator_data: Any) -> str:
     """Stable revision string when on-disk library content changes."""
-    movies = coordinator_data.movies or []
+    movies = library_source(coordinator_data)
     parts: list[str] = []
     for m in sorted(movies, key=lambda x: x.get("id") or 0):
         parts.append(
@@ -72,8 +81,13 @@ def library_match(
     tmdb_id: int | None,
     title: str | None,
     year: int | None,
+    tvdb_id: int | None = None,
 ) -> dict[str, Any] | None:
-    """Find a library movie for Add-tab lookup."""
+    """Find a library movie or series for Add-tab lookup."""
+    if tvdb_id is not None:
+        for item in movies:
+            if item.get("tvdbId") == tvdb_id:
+                return item
     if tmdb_id is not None:
         for m in movies:
             if m.get("tmdbId") == tmdb_id:

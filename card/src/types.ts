@@ -28,6 +28,8 @@ export interface ArrCardConfig {
     root_folder?: string;
     search_on_add?: boolean;
     minimum_availability?: string;
+    /** Sonarr add sheet. One of all, future, missing, existing, firstSeason, latestSeason, none. */
+    monitor?: string;
   };
   hide_destructive_actions?: boolean;
   external_link?: string | false;
