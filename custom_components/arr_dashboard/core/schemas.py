@@ -39,6 +39,7 @@ LIBRARY_PAGE_SCHEMA = vol.Schema(
 LIBRARY_MATCH_SCHEMA = vol.Schema(
     {
         vol.Optional("tmdbId"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("tvdbId"): vol.All(vol.Coerce(int), vol.Range(min=0)),
         vol.Optional("title"): vol.Coerce(str),
         vol.Optional("year"): vol.Coerce(int),
     }

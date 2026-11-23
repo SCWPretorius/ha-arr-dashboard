@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from ..const import MIN_RADARR_VERSION
 from ..core.client import (
-    ArrCannotConnect,
     ArrClientBase,
-    ArrClientError,
-    ArrInvalidAuth,
+    async_validate_arr_status,
+    parse_arr_version,
 )
 
 MOVIE_ADDED = 1
@@ -19,10 +16,7 @@ EVENT_GRABBED = 1
 
 def parse_radarr_version(version: str) -> tuple[int, ...]:
     """Parse Radarr version string into a tuple."""
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version)
-    if not match:
-        return (0, 0, 0)
-    return tuple(int(x) for x in match.groups())
+    return parse_arr_version(version)
 
 
 class RadarrClient(ArrClientBase):
@@ -32,19 +26,8 @@ class RadarrClient(ArrClientBase):
         return await self.get("/api/v3/system/status")
 
     async def validate_connection(self) -> dict[str, Any]:
-        """Validate URL, auth, and minimum version."""
-        try:
-            status = await self.get_system_status()
-        except ArrInvalidAuth:
-            raise
-        except Exception as err:
-            raise ArrCannotConnect(str(err)) from err
-        version = parse_radarr_version(status.get("version", "0.0.0"))
-        if version < MIN_RADARR_VERSION:
-            raise ArrClientError(
-                f"Radarr version {status.get('version')} is below 4.0.0"
-            )
-        return status
+        """Validate URL, auth, app name, and minimum version."""
+        return await async_validate_arr_status(self, expected_app="Radarr")
 
     async def get_health(self) -> list[dict[str, Any]]:
         return await self.get("/api/v3/health")
@@ -170,21 +153,3 @@ class RadarrClient(ArrClientBase):
                 "importMode": "Auto",
             }
         )
-
-    async def fetch_poster_bytes(self, movie_id: int) -> tuple[bytes, str]:
-        """Fetch poster image bytes via Radarr."""
-        import aiohttp
-        from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-        session = async_get_clientsession(self._hass, verify_ssl=self._verify_ssl)
-        url = f"{self._base_url}/api/v3/mediacover/{movie_id}/poster.jpg"
-        async with session.get(
-            url,
-            headers=self._headers(),
-            timeout=aiohttp.ClientTimeout(total=30),
-            allow_redirects=False,
-        ) as resp:
-            if resp.status != 200:
-                raise ArrClientError(f"Poster fetch failed: HTTP {resp.status}")
-            content_type = resp.headers.get("Content-Type", "image/jpeg")
-            return await resp.read(), content_type

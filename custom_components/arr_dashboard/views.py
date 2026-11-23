@@ -8,13 +8,13 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .core.client import ArrClientError
-from .helpers import get_radarr_client
+from .helpers import get_arr_client
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ArrDashboardPosterView(HomeAssistantView):
-    """Proxy movie posters without exposing the API key."""
+    """Proxy posters without exposing the API key."""
 
     url = "/api/arr_dashboard/{entry_id}/poster/{movie_id}"
     name = "api:arr_dashboard:poster"
@@ -24,7 +24,7 @@ class ArrDashboardPosterView(HomeAssistantView):
         self, request: web.Request, entry_id: str, movie_id: str
     ) -> web.Response:
         hass = request.app["hass"]
-        client = get_radarr_client(hass, entry_id)
+        client = get_arr_client(hass, entry_id)
         if not client:
             raise web.HTTPNotFound()
         try:

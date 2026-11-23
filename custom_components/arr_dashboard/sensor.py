@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .radarr.coordinator import RadarrDataUpdateCoordinator
+from .helpers import ArrCoordinator
 
 
 async def async_setup_entry(
@@ -18,9 +18,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: RadarrDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: ArrCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
             ArrQueueCountSensor(coordinator, entry),
@@ -37,7 +35,7 @@ class ArrQueueCountSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(
         self,
-        coordinator: RadarrDataUpdateCoordinator,
+        coordinator: ArrCoordinator,
         entry: ConfigEntry,
     ) -> None:
         super().__init__(coordinator)
@@ -51,14 +49,14 @@ class ArrQueueCountSensor(CoordinatorEntity, SensorEntity):
 
 
 class ArrHealthSensor(CoordinatorEntity, SensorEntity):
-    """Radarr health summary."""
+    """Arr health summary."""
 
     _attr_icon = "mdi:heart-pulse"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
-        coordinator: RadarrDataUpdateCoordinator,
+        coordinator: ArrCoordinator,
         entry: ConfigEntry,
     ) -> None:
         super().__init__(coordinator)

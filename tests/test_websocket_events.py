@@ -31,7 +31,7 @@ async def test_add_movie_fires_arr_movie_added_once() -> None:
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
-            "custom_components.arr_dashboard.radarr.actions.async_add_movie",
+            "custom_components.arr_dashboard.websocket_api.async_add_movie",
             AsyncMock(return_value={"title": "New", "year": 2024}),
         )
         await _handle_command(hass, coordinator, client, "add_movie", {"title": "New"})
