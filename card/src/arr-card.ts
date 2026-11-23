@@ -1020,6 +1020,7 @@ export class ArrDashboardCard extends LitElement {
                   .columns=${this._libraryColumns}
                   .itemHeight=${this._posterRowHeight}
                   rowClass="poster-grid"
+                  .contentKey=${this._libraryItems}
                   .renderRow=${this._libraryRowRender}
                   @scroll=${this._onLibraryScroll}
                 ></arr-virtual-list>

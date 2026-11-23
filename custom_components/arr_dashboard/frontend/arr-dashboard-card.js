@@ -1671,8 +1671,15 @@ const cardStyles = i$3 `
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.08);
     color: #e5e5e5;
+    color-scheme: dark;
     font: inherit;
     font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .sort-select option {
+    background: #1f1f1f;
+    color: #e5e5e5;
   }
 
   .list-view {
@@ -2174,6 +2181,8 @@ class ArrVirtualList extends i {
         this.itemCount = 0;
         this.columns = 1;
         this.rowClass = "";
+        /** New value when row contents change but itemCount stays the same. */
+        this.contentKey = 0;
         this._scrollTop = 0;
         this._height = 400;
     }
@@ -2206,6 +2215,7 @@ class ArrVirtualList extends i {
         this._scrollTop = this.scrollTop;
     }
     render() {
+        void this.contentKey;
         const rows = this._rowCount();
         const buffer = this.itemHeight * 4;
         const total = rows * this.itemHeight;
@@ -2256,6 +2266,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], ArrVirtualList.prototype, "renderRow", void 0);
+__decorate([
+    n({ attribute: false })
+], ArrVirtualList.prototype, "contentKey", void 0);
 __decorate([
     r()
 ], ArrVirtualList.prototype, "_scrollTop", void 0);
@@ -3365,6 +3378,7 @@ class ArrDashboardCard extends i {
                   .columns=${this._libraryColumns}
                   .itemHeight=${this._posterRowHeight}
                   rowClass="poster-grid"
+                  .contentKey=${this._libraryItems}
                   .renderRow=${this._libraryRowRender}
                   @scroll=${this._onLibraryScroll}
                 ></arr-virtual-list>

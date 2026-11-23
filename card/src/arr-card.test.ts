@@ -344,6 +344,52 @@ describe("arr-card library grid", () => {
     );
   });
 
+  it("reorders the poster grid when the sort dropdown changes", async () => {
+    const sorts: string[] = [];
+    const el = document.createElement("arr-card") as ArrDashboardCard;
+    el.hass = {
+      callWS: async (msg: Record<string, unknown>) => {
+        if (msg.type === "config_entries/get") {
+          return [{ entry_id: "abc", domain: "arr_dashboard", title: "Radarr" }];
+        }
+        if (msg.type === "arr_dashboard") {
+          const data = (msg.data as Record<string, unknown>) ?? {};
+          if (msg.command === "library_page") {
+            sorts.push(String(data.sort ?? "title"));
+          }
+          return mockArrDashboard(String(msg.command), data, 60, true);
+        }
+        return {};
+      },
+    } as never;
+    el.setConfig({
+      type: "custom:arr-card",
+      tabs: ["library"],
+      default_tab: "library",
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    const caption = () =>
+      el.shadowRoot
+        ?.querySelector(".library-scroll .poster-grid .poster-caption")
+        ?.textContent?.trim();
+    const before = caption();
+    expect(before).to.be.a("string").and.not.empty;
+    const select = el.shadowRoot?.querySelector(
+      ".sort-select",
+    ) as HTMLSelectElement;
+    select.value = "year";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 80));
+    await el.updateComplete;
+    expect(sorts).to.include("year");
+    expect(caption()).to.not.equal(before);
+    expect(select.value).to.equal("year");
+  });
+
   it("loads more library pages when the viewport sentinel intersects", async () => {
     const observe = vi.fn();
     const disconnect = vi.fn();

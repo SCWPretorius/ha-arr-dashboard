@@ -840,8 +840,15 @@ export const cardStyles = css`
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.08);
     color: #e5e5e5;
+    color-scheme: dark;
     font: inherit;
     font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .sort-select option {
+    background: #1f1f1f;
+    color: #e5e5e5;
   }
 
   .list-view {
