@@ -75,6 +75,7 @@ import {
   type LibraryPageResult,
   type MovieSlim,
   type QueueItem,
+  type SeriesEpisode,
   type SeriesSeason,
   type SeriesSlim,
 } from "./ws";
@@ -164,6 +165,9 @@ export class ArrDashboardCard extends LitElement {
   @state() private _qualitySearch = true;
   @state() private _queueOverflow?: QueueItem;
   @state() private _manualMovieId?: number;
+  @state() private _episodes: SeriesEpisode[] = [];
+  @state() private _episodeId?: number;
+  @state() private _episodesLoading = false;
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
   @state() private _releaseBusy = false;
@@ -854,7 +858,24 @@ export class ArrDashboardCard extends LitElement {
       this._releaseCache.set(movieId, { at: now, releases });
       this._releases = releases;
     } catch (err) {
-      this._fail(this._profile.commands.search, err);
+      this._fail("release_search", err);
+      this._releases = [];
+    } finally {
+      this._releaseBusy = false;
+    }
+  }
+
+  private async _loadEpisodeReleases(episodeId: number): Promise<void> {
+    this._releaseBusy = true;
+    try {
+      const res = (await this._ws("release_search", {
+        episode_id: episodeId,
+      })) as { releases: ReleaseRow[] };
+      const releases = res.releases ?? [];
+      this._releaseCache.set(episodeId, { at: Date.now(), releases });
+      this._releases = releases;
+    } catch (err) {
+      this._fail("release_search", err);
       this._releases = [];
     } finally {
       this._releaseBusy = false;
@@ -1958,6 +1979,43 @@ export class ArrDashboardCard extends LitElement {
           ← Back
         </button>
         <h2>Manual search</h2>
+        ${this.app === "sonarr"
+          ? this._episodes.length
+            ? html`
+                <label>
+                  Episode
+                  <select
+                    aria-label="Episode"
+                    data-field="episode"
+                    .value=${String(this._episodeId ?? "")}
+                    @change=${(e: Event) => {
+                      const id = Number((e.target as HTMLSelectElement).value);
+                      this._episodeId = id;
+                      void this._loadEpisodeReleases(id);
+                    }}
+                  >
+                    ${this._episodes.map((episode) => {
+                      const code = episodeCode(
+                        episode.seasonNumber,
+                        episode.episodeNumber,
+                      );
+                      const label = [code, episode.title]
+                        .filter((part) => part)
+                        .join(" ");
+                      return html`<option value=${String(episode.id)}>
+                        ${label || "Episode"}
+                      </option>`;
+                    })}
+                  </select>
+                </label>
+              `
+            : this._episodesLoading
+              ? html`<p>Loading episodes…</p>`
+              : html`<p>No episodes on this series yet.</p>`
+          : nothing}
+        ${this.app === "sonarr" && !this._episodes.length
+          ? nothing
+          : html`
         <label>
           <input
             type="checkbox"
@@ -1980,7 +2038,9 @@ export class ArrDashboardCard extends LitElement {
             ? html`
                 <p>No releases found</p>
                 <p class="hint-muted">
-                  None of your indexers have this ${this._profile.noun} right now.
+                  None of your indexers have this ${
+                    this.app === "sonarr" ? "episode" : this._profile.noun
+                  } right now.
                   ${this._profile.product} keeps checking while it's monitored.
                 </p>
               `
@@ -2006,6 +2066,7 @@ export class ArrDashboardCard extends LitElement {
                   ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
                 </div>
               `}
+        `}
       </dialog>
     `;
   }
@@ -2301,7 +2362,33 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private async _openManualSearch(m: LibraryItem): Promise<void> {
-    await this._loadReleases(m.id);
+    if (this.app !== "sonarr") {
+      await this._loadReleases(m.id);
+      return;
+    }
+    this._manualMovieId = m.id;
+    this._releases = [];
+    this._episodes = [];
+    this._episodeId = undefined;
+    this._episodesLoading = true;
+    try {
+      const res = (await this._ws("get_episodes", {
+        series_id: m.id,
+      })) as { episodes?: SeriesEpisode[] };
+      this._episodes = res.episodes ?? [];
+      const first =
+        this._episodes.find((episode) => !episode.hasFile) ??
+        this._episodes[0];
+      this._episodeId = first?.id;
+    } catch (err) {
+      this._fail("get_episodes", err);
+      this._episodes = [];
+    } finally {
+      this._episodesLoading = false;
+    }
+    if (this._episodeId != null) {
+      await this._loadEpisodeReleases(this._episodeId);
+    }
   }
 
   private async _saveQualityProfile(): Promise<void> {

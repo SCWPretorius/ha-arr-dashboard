@@ -1004,6 +1004,8 @@ const FAILURE_VERBS = {
     add_series: "add the series",
     series_search: "start the search",
     season_search: "search the season",
+    release_search: "search for releases",
+    get_episodes: "load episodes",
     remove_series: "remove the series",
     set_series_quality_profile: "change the profile",
     set_series_monitored: "update monitoring",
@@ -2912,6 +2914,8 @@ class ArrDashboardCard extends i {
         this._failureDetail = "";
         this._qualityOpen = false;
         this._qualitySearch = true;
+        this._episodes = [];
+        this._episodesLoading = false;
         this._releases = [];
         this._showRejected = false;
         this._releaseBusy = false;
@@ -3554,7 +3558,25 @@ class ArrDashboardCard extends i {
             this._releases = releases;
         }
         catch (err) {
-            this._fail(this._profile.commands.search, err);
+            this._fail("release_search", err);
+            this._releases = [];
+        }
+        finally {
+            this._releaseBusy = false;
+        }
+    }
+    async _loadEpisodeReleases(episodeId) {
+        this._releaseBusy = true;
+        try {
+            const res = (await this._ws("release_search", {
+                episode_id: episodeId,
+            }));
+            const releases = res.releases ?? [];
+            this._releaseCache.set(episodeId, { at: Date.now(), releases });
+            this._releases = releases;
+        }
+        catch (err) {
+            this._fail("release_search", err);
             this._releases = [];
         }
         finally {
@@ -4516,6 +4538,40 @@ class ArrDashboardCard extends i {
           ← Back
         </button>
         <h2>Manual search</h2>
+        ${this.app === "sonarr"
+            ? this._episodes.length
+                ? b `
+                <label>
+                  Episode
+                  <select
+                    aria-label="Episode"
+                    data-field="episode"
+                    .value=${String(this._episodeId ?? "")}
+                    @change=${(e) => {
+                    const id = Number(e.target.value);
+                    this._episodeId = id;
+                    void this._loadEpisodeReleases(id);
+                }}
+                  >
+                    ${this._episodes.map((episode) => {
+                    const code = episodeCode(episode.seasonNumber, episode.episodeNumber);
+                    const label = [code, episode.title]
+                        .filter((part) => part)
+                        .join(" ");
+                    return b `<option value=${String(episode.id)}>
+                        ${label || "Episode"}
+                      </option>`;
+                })}
+                  </select>
+                </label>
+              `
+                : this._episodesLoading
+                    ? b `<p>Loading episodes…</p>`
+                    : b `<p>No episodes on this series yet.</p>`
+            : A}
+        ${this.app === "sonarr" && !this._episodes.length
+            ? A
+            : b `
         <label>
           <input
             type="checkbox"
@@ -4526,22 +4582,22 @@ class ArrDashboardCard extends i {
           Show rejected releases
         </label>
         ${this._releaseBusy
-            ? b `
+                ? b `
               <p>Searching indexers…</p>
               <p class="hint-muted">
                 This can take up to a minute. You can close this and come back.
               </p>
               <div class="skeleton-list" aria-busy="true"></div>
             `
-            : !sorted.length
-                ? b `
+                : !sorted.length
+                    ? b `
                 <p>No releases found</p>
                 <p class="hint-muted">
-                  None of your indexers have this ${this._profile.noun} right now.
+                  None of your indexers have this ${this.app === "sonarr" ? "episode" : this._profile.noun} right now.
                   ${this._profile.product} keeps checking while it's monitored.
                 </p>
               `
-                : b `
+                    : b `
                 <div class="release-header">
                   <span
                     >${approvedCount} releases · ${rejectedCount} rejected</span
@@ -4550,7 +4606,7 @@ class ArrDashboardCard extends i {
                     aria-label="Sort releases"
                     .value=${this._releaseSort}
                     @change=${(e) => (this._releaseSort = e.target
-                    .value)}
+                        .value)}
                   >
                     <option value="match">Best match</option>
                     <option value="size">Size</option>
@@ -4562,6 +4618,7 @@ class ArrDashboardCard extends i {
                   ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
                 </div>
               `}
+        `}
       </dialog>
     `;
     }
@@ -4818,7 +4875,34 @@ class ArrDashboardCard extends i {
         }
     }
     async _openManualSearch(m) {
-        await this._loadReleases(m.id);
+        if (this.app !== "sonarr") {
+            await this._loadReleases(m.id);
+            return;
+        }
+        this._manualMovieId = m.id;
+        this._releases = [];
+        this._episodes = [];
+        this._episodeId = undefined;
+        this._episodesLoading = true;
+        try {
+            const res = (await this._ws("get_episodes", {
+                series_id: m.id,
+            }));
+            this._episodes = res.episodes ?? [];
+            const first = this._episodes.find((episode) => !episode.hasFile) ??
+                this._episodes[0];
+            this._episodeId = first?.id;
+        }
+        catch (err) {
+            this._fail("get_episodes", err);
+            this._episodes = [];
+        }
+        finally {
+            this._episodesLoading = false;
+        }
+        if (this._episodeId != null) {
+            await this._loadEpisodeReleases(this._episodeId);
+        }
     }
     async _saveQualityProfile() {
         const profileId = this._qualityPendingId;
@@ -4985,6 +5069,15 @@ __decorate([
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_manualMovieId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_episodes", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_episodeId", void 0);
+__decorate([
+    r()
+], ArrDashboardCard.prototype, "_episodesLoading", void 0);
 __decorate([
     r()
 ], ArrDashboardCard.prototype, "_releases", void 0);

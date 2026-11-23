@@ -85,6 +85,8 @@ export const FAILURE_VERBS: Record<string, string> = {
   add_series: "add the series",
   series_search: "start the search",
   season_search: "search the season",
+  release_search: "search for releases",
+  get_episodes: "load episodes",
   remove_series: "remove the series",
   set_series_quality_profile: "change the profile",
   set_series_monitored: "update monitoring",

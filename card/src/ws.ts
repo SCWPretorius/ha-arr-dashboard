@@ -37,6 +37,16 @@ export interface MovieSlim {
   qualityProfileId?: number;
 }
 
+export interface SeriesEpisode {
+  id: number;
+  seriesId?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  title?: string;
+  hasFile?: boolean;
+  monitored?: boolean;
+}
+
 export interface SeriesSeason {
   seasonNumber: number;
   monitored?: boolean;
