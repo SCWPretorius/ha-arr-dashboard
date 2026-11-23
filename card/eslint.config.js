@@ -22,6 +22,7 @@ export default [
         MouseEvent: "readonly",
         CustomEvent: "readonly",
         ResizeObserver: "readonly",
+        queueMicrotask: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
         setInterval: "readonly",
