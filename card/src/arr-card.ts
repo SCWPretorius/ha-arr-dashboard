@@ -2,9 +2,24 @@ import { LitElement, html, nothing } from "lit";
 import { ifDefined } from "lit/directives/if-defined.js";
 import type { PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
+import {
+  episodeCode,
+  isMonitorMode,
+  preferredSearchEpisode,
+  profileFor,
+  seriesRunLabel,
+  type ArrApp,
+  type MonitorMode,
+} from "./app-profile";
 import { defineElement } from "./define-element";
 import { renderConfirmDialog } from "./confirm-dialog";
-import { formatBytes, formatRelative, queueProgress, queueStatusLabel } from "./format";
+import {
+  formatAirDate,
+  formatBytes,
+  formatRelative,
+  queueProgress,
+  queueStatusLabel,
+} from "./format";
 import {
   libraryPosterColumns,
   libraryPosterRowHeight,
@@ -53,12 +68,17 @@ import type {
 import "./virtual-list";
 import {
   callArr,
-  resolveEntryId,
+  resolveArrEntry,
   signPosterPath,
   type ArrState,
+  type CalendarEpisode,
+  type LibraryItem,
   type LibraryPageResult,
   type MovieSlim,
   type QueueItem,
+  type SeriesEpisode,
+  type SeriesSeason,
+  type SeriesSlim,
 } from "./ws";
 
 const LOOKUP_DEBOUNCE_MS = 400;
@@ -98,10 +118,14 @@ function queueNeedsAttention(item: QueueItem): boolean {
 export class ArrDashboardCard extends LitElement {
   static styles = cardStyles;
 
+  protected app: ArrApp = "radarr";
+
   @property({ attribute: false }) public hass!: HomeAssistant;
   @property({ attribute: false }) public config!: ArrCardConfig;
 
   @state() private _entryId?: string;
+  @state() private _listedApp?: ArrApp;
+  @state() private _mismatch = false;
   @state() private _state?: ArrState;
   @state() private _tab: TabId = "library";
   @state() private _configError?: string;
@@ -120,16 +144,19 @@ export class ArrDashboardCard extends LitElement {
   @state() private _addMonitored = true;
   @state() private _addMinAvail = "released";
   @state() private _addBusy = false;
-  @state() private _selectedMovie?: MovieSlim;
+  @state() private _selectedMovie?: LibraryItem;
   @state() private _detailExtra?: Record<string, unknown>;
   @state() private _librarySearch = "";
   @state() private _librarySort: LibrarySort = "title";
-  @state() private _libraryItems: MovieSlim[] = [];
+  @state() private _libraryItems: LibraryItem[] = [];
   @state() private _libraryTotal = 0;
   @state() private _libraryLoading = false;
   @state() private _libraryLoadingMore = false;
   @state() private _addUpcoming: MovieSlim[] = [];
-  @state() private _lookupLib: Record<string, MovieSlim> = {};
+  @state() private _upcomingEpisodes: CalendarEpisode[] = [];
+  @state() private _addRecent: SeriesSlim[] = [];
+  @state() private _addMonitor: MonitorMode = "all";
+  @state() private _lookupLib: Record<string, LibraryItem> = {};
   @state() private _queuePosters: Record<number, string> = {};
   @state() private _compact = false;
   @state() private _hostWidth = 0;
@@ -139,6 +166,10 @@ export class ArrDashboardCard extends LitElement {
   @state() private _qualitySearch = true;
   @state() private _queueOverflow?: QueueItem;
   @state() private _manualMovieId?: number;
+  @state() private _episodes: SeriesEpisode[] = [];
+  @state() private _episodeId?: number;
+  @state() private _episodesLoading = false;
+  @state() private _episodesError = "";
   @state() private _releases: ReleaseRow[] = [];
   @state() private _showRejected = false;
   @state() private _releaseBusy = false;
@@ -163,13 +194,19 @@ export class ArrDashboardCard extends LitElement {
   private _pageVisible = true;
   private readonly _fullRefreshMs = 5 * 60 * 1000;
 
+  private get _profile() {
+    return profileFor(this.app);
+  }
+
   public setConfig(config: ArrCardConfig): void {
     if (!config.type) {
       throw new Error("Invalid configuration");
     }
+    const prevInstance = this.config?.instance;
+    const profile = this._profile;
     this.config = {
-      title: "Movies",
-      icon: "mdi:movie-open",
+      title: profile.defaultTitle,
+      icon: profile.defaultIcon,
       tabs: ["add", "downloading", "library", "issues"],
       default_tab: "library",
       compact: "auto",
@@ -183,13 +220,19 @@ export class ArrDashboardCard extends LitElement {
       library_filter: "downloaded",
       external_link: false,
       ...config,
-      type: config.type || "custom:arr-card",
+      type: config.type || profile.cardType,
     };
     this._tab = this.config.default_tab ?? "library";
     this._librarySort = (this.config.library_sort as LibrarySort) ?? "title";
     const ad = this.config.add_defaults ?? {};
     this._addSearchOn = ad.search_on_add !== false;
     this._addMinAvail = ad.minimum_availability ?? "released";
+    this._addMonitor = isMonitorMode(ad.monitor) ? ad.monitor : "all";
+    if (this.hass && this.isConnected && prevInstance !== this.config.instance) {
+      this._mismatch = false;
+      this._configError = undefined;
+      void this._bootstrap();
+    }
   }
 
   connectedCallback(): void {
@@ -250,21 +293,42 @@ export class ArrDashboardCard extends LitElement {
 
   private _ro?: ResizeObserver;
 
+  /** Explicit app on get_state wins. Otherwise list_instances, then missing means Radarr. */
+  private _stateAppMismatch(data: ArrState): boolean {
+    if (data.app === "sonarr" || data.app === "radarr") {
+      return data.app !== this.app;
+    }
+    if (this._listedApp) return this._listedApp !== this.app;
+    return this.app !== "radarr";
+  }
+
   private async _bootstrap(): Promise<void> {
     if (!this.hass) return;
     try {
-      const eid = await resolveEntryId(this.hass, this.config?.instance);
-      if (!eid) {
-        this._configError = `No Radarr instance called "${this.config.instance ?? ""}".`;
+      const resolved = await resolveArrEntry(
+        this.hass,
+        this.config?.instance,
+        this.app,
+      );
+      if (!resolved) {
+        this._configError = `No ${this._profile.product} instance called "${this.config.instance ?? ""}".`;
         this._loading = false;
         return;
       }
-      this._entryId = eid;
+      this._entryId = resolved.entryId;
+      this._listedApp = resolved.app;
+      if (resolved.mismatch) {
+        this._mismatch = true;
+        this._state = undefined;
+        this._libraryItems = [];
+        this._loading = false;
+        return;
+      }
+      this._mismatch = false;
       await this._refresh();
       this._schedulePoll();
     } catch {
-      this._configError =
-        "Movies card can't start. Check the Arr integration in Settings.";
+      this._configError = `${this._profile.defaultTitle} card can't start. Check the Arr integration in Settings.`;
       this._loading = false;
     }
   }
@@ -288,6 +352,13 @@ export class ArrDashboardCard extends LitElement {
       const data = (await callArr(this.hass, this._entryId, "get_state", {
         scope,
       })) as ArrState;
+      if (this._stateAppMismatch(data)) {
+        this._mismatch = true;
+        this._state = undefined;
+        this._libraryItems = [];
+        return;
+      }
+      this._mismatch = false;
       const wasOff = this._offline;
       if (queueOnly && this._state) {
         this._state = {
@@ -334,7 +405,7 @@ export class ArrDashboardCard extends LitElement {
     }
   }
 
-  private async _signMoviePosters(movies: MovieSlim[]): Promise<void> {
+  private async _signMoviePosters(movies: LibraryItem[]): Promise<void> {
     if (!this.hass) return;
     await Promise.all(
       movies.map(async (m) => {
@@ -346,10 +417,41 @@ export class ArrDashboardCard extends LitElement {
     );
   }
 
+  private _queueMediaId(row: QueueItem): number | undefined {
+    switch (this.app) {
+      case "sonarr":
+        return row.series?.id;
+      case "radarr":
+        return row.movie?.id;
+      default: {
+        const _never: never = this.app;
+        return _never;
+      }
+    }
+  }
+
+  private _queueTitle(row: QueueItem): string {
+    switch (this.app) {
+      case "sonarr": {
+        const series = row.series?.title ?? row.title ?? "Download";
+        const episodeNumber = row.episode?.episodeNumber ?? row.episodeNumber;
+        const code = episodeCode(row.seasonNumber, episodeNumber);
+        const episodeTitle = row.episode?.title;
+        return [series, code, episodeTitle].filter((part) => part).join(" · ");
+      }
+      case "radarr":
+        return row.movie?.title ?? row.title ?? "Download";
+      default: {
+        const _never: never = this.app;
+        return _never;
+      }
+    }
+  }
+
   private _queuePosterPath(row: QueueItem): string {
-    const movieId = row.movie?.id;
-    if (!movieId || !this._entryId) return "";
-    return `/api/arr_dashboard/${this._entryId}/poster/${movieId}`;
+    const mediaId = this._queueMediaId(row);
+    if (!mediaId || !this._entryId) return "";
+    return `/api/arr_dashboard/${this._entryId}/poster/${mediaId}`;
   }
 
   private async _hydrateQueuePosters(): Promise<void> {
@@ -359,7 +461,7 @@ export class ArrDashboardCard extends LitElement {
     let changed = false;
     await Promise.all(
       rows.map(async (row) => {
-        const movieId = row.movie?.id;
+        const movieId = this._queueMediaId(row);
         if (!movieId || next[movieId]) return;
         const path = this._queuePosterPath(row);
         if (!path) return;
@@ -532,12 +634,39 @@ export class ArrDashboardCard extends LitElement {
     try {
       const res = (await this._ws("library_upcoming", {
         days: this.config.upcoming_days ?? 30,
-      })) as { items: MovieSlim[] };
-      await this._signMoviePosters(res.items);
-      this._addUpcoming = res.items;
+      })) as { items: MovieSlim[] | CalendarEpisode[] };
+      if (this.app === "sonarr") {
+        this._upcomingEpisodes = (res.items ?? []) as CalendarEpisode[];
+        this._addUpcoming = [];
+        await this._loadRecentSeries();
+      } else {
+        const movies = (res.items ?? []) as MovieSlim[];
+        await this._signMoviePosters(movies);
+        this._addUpcoming = movies;
+        this._upcomingEpisodes = [];
+        this._addRecent = [];
+      }
     } catch {
       this._addUpcoming = [];
+      this._upcomingEpisodes = [];
+      this._addRecent = [];
     }
+  }
+
+  private async _loadRecentSeries(): Promise<void> {
+    const full = (await this._ws("get_state", { scope: "full" })) as ArrState;
+    const items: LibraryItem[] = full.series ?? [];
+    const days = this.config.recent_days ?? 7;
+    const since = Date.now() - days * 86400000;
+    const recent = items
+      .filter((item): item is SeriesSlim => {
+        if (!item.added) return false;
+        return new Date(item.added).getTime() >= since;
+      })
+      .sort((a, b) => (b.added ?? "").localeCompare(a.added ?? ""))
+      .slice(0, 12);
+    await this._signMoviePosters(recent);
+    this._addRecent = recent;
   }
 
   private async _refreshLookupLibraryFlags(): Promise<void> {
@@ -545,24 +674,34 @@ export class ArrDashboardCard extends LitElement {
       this._lookupLib = {};
       return;
     }
-    const next: Record<string, MovieSlim> = {};
+    const next: Record<string, LibraryItem> = {};
     await Promise.all(
       this._lookupResults.map(async (r) => {
-        const key = String(
-          r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`,
-        );
-        const res = (await this._ws("library_match", {
-          tmdbId: r.tmdbId,
-          title: r.title,
-          year: r.year,
-        })) as { movie?: MovieSlim | null };
-        if (res.movie) next[key] = res.movie;
+        const key = this._lookupLibKey(r);
+        if (this.app === "sonarr") {
+          const res = (await this._ws("library_match", {
+            tvdbId: r.tvdbId,
+            title: r.title,
+            year: r.year,
+          })) as { series?: SeriesSlim | null };
+          if (res.series) next[key] = res.series;
+        } else {
+          const res = (await this._ws("library_match", {
+            tmdbId: r.tmdbId,
+            title: r.title,
+            year: r.year,
+          })) as { movie?: MovieSlim | null };
+          if (res.movie) next[key] = res.movie;
+        }
       }),
     );
     this._lookupLib = next;
   }
 
   private _lookupLibKey(r: Record<string, unknown>): string {
+    if (this.app === "sonarr") {
+      return String(r.tvdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
+    }
     return String(r.tmdbId ?? `${String(r.title)}-${String(r.year ?? "")}`);
   }
 
@@ -621,6 +760,7 @@ export class ArrDashboardCard extends LitElement {
     this._addSearchOn = defaults.search_on_add !== false;
     this._addMonitored = true;
     this._addMinAvail = defaults.minimum_availability ?? "released";
+    this._addMonitor = isMonitorMode(defaults.monitor) ? defaults.monitor : "all";
     this._addSheetOpen = true;
     this._addPhase = "sheet";
   }
@@ -630,17 +770,30 @@ export class ArrDashboardCard extends LitElement {
     this._addBusy = true;
     try {
       const r = this._addPick;
-      await this._ws("add_movie", {
-        title: r.title,
-        year: r.year,
-        tmdbId: r.tmdbId,
-        imdbId: r.imdbId,
-        quality_profile_id: this._addProfileId,
-        root_folder_path: this._addRootPath,
-        search_on_add: this._addSearchOn,
-        monitored: this._addMonitored,
-        minimum_availability: this._addMinAvail,
-      });
+      if (this.app === "sonarr") {
+        await this._ws(this._profile.commands.add, {
+          title: r.title,
+          year: r.year,
+          tvdbId: r.tvdbId,
+          imdbId: r.imdbId,
+          quality_profile_id: this._addProfileId,
+          root_folder_path: this._addRootPath,
+          search_on_add: this._addSearchOn,
+          monitor: this._addMonitor,
+        });
+      } else {
+        await this._ws(this._profile.commands.add, {
+          title: r.title,
+          year: r.year,
+          tmdbId: r.tmdbId,
+          imdbId: r.imdbId,
+          quality_profile_id: this._addProfileId,
+          root_folder_path: this._addRootPath,
+          search_on_add: this._addSearchOn,
+          monitored: this._addMonitored,
+          minimum_availability: this._addMinAvail,
+        });
+      }
       showToast(this, toastAdded(String(r.title), this._addSearchOn));
       this._addSheetOpen = false;
       this._addPick = undefined;
@@ -649,16 +802,33 @@ export class ArrDashboardCard extends LitElement {
       this._lookupResults = [];
       await this._refresh();
     } catch (err) {
-      this._fail("add_movie", err);
+      this._fail(this._profile.commands.add, err);
     } finally {
       this._addBusy = false;
     }
   }
 
-  private async _openMovieDetail(m: MovieSlim): Promise<void> {
+  private async _openMovieDetail(m: LibraryItem): Promise<void> {
     this._selectedMovie = m;
     try {
-      const res = (await this._ws("get_movie", { movie_id: m.id })) as {
+      if (this.app === "sonarr") {
+        const res = (await this._ws(this._profile.commands.get, {
+          series_id: m.id,
+        })) as {
+          series?: SeriesSlim;
+          seasons?: SeriesSeason[];
+          grabbed_history?: unknown[];
+        };
+        this._detailExtra = {
+          ...(res.series ?? {}),
+          seasons: res.seasons ?? res.series?.seasons ?? [],
+          grabbed_history: res.grabbed_history ?? [],
+        };
+        return;
+      }
+      const res = (await this._ws(this._profile.commands.get, {
+        movie_id: m.id,
+      })) as {
         movie: Record<string, unknown>;
         grabbed_history?: unknown[];
       };
@@ -681,17 +851,44 @@ export class ArrDashboardCard extends LitElement {
     this._manualMovieId = movieId;
     this._releaseBusy = true;
     try {
-      const res = (await this._ws("release_search", { movie_id: movieId })) as {
+      const res = (await this._ws("release_search", {
+        [this._profile.idField]: movieId,
+      })) as {
         releases: ReleaseRow[];
       };
       const releases = res.releases ?? [];
       this._releaseCache.set(movieId, { at: now, releases });
       this._releases = releases;
     } catch (err) {
-      this._fail("movie_search", err);
+      this._fail("release_search", err);
       this._releases = [];
     } finally {
       this._releaseBusy = false;
+    }
+  }
+
+  private async _loadEpisodeReleases(episodeId: number): Promise<void> {
+    const cached = this._releaseCache.get(episodeId);
+    const now = Date.now();
+    if (cached && now - cached.at < RELEASE_CACHE_MS) {
+      if (this._episodeId === episodeId) this._releases = cached.releases;
+      return;
+    }
+    this._releaseBusy = true;
+    try {
+      const res = (await this._ws("release_search", {
+        episode_id: episodeId,
+      })) as { releases: ReleaseRow[] };
+      if (this._episodeId !== episodeId) return;
+      const releases = res.releases ?? [];
+      this._releaseCache.set(episodeId, { at: now, releases });
+      this._releases = releases;
+    } catch (err) {
+      if (this._episodeId !== episodeId) return;
+      this._fail("release_search", err);
+      this._releases = [];
+    } finally {
+      if (this._episodeId === episodeId) this._releaseBusy = false;
     }
   }
 
@@ -699,8 +896,21 @@ export class ArrDashboardCard extends LitElement {
     if (this._configError) {
       return html`
         <ha-card data-screen="G03">
-          <p><strong>Movies card can't start</strong></p>
+          <p><strong>${this._profile.defaultTitle} card can't start</strong></p>
           <p>${this._configError}</p>
+        </ha-card>
+      `;
+    }
+
+    if (this._mismatch) {
+      const other = this.app === "sonarr" ? "Radarr" : "Sonarr";
+      return html`
+        <ha-card data-screen="G03" data-mismatch="true">
+          <p><strong>Wrong instance</strong></p>
+          <p>
+            This ${this._profile.nounTitle} card is pointed at ${other}. Choose a
+            ${this._profile.product} instance.
+          </p>
         </ha-card>
       `;
     }
@@ -762,6 +972,7 @@ export class ArrDashboardCard extends LitElement {
           this._state?.disk_space ?? [],
           cfg,
           () => (this._statusOpen = false),
+          this._profile.product,
         )}
         ${renderFailureSheet(
           "Failure details",
@@ -791,6 +1002,9 @@ export class ArrDashboardCard extends LitElement {
             this._addPhase = "results";
           },
           () => void this._confirmAddMovie(),
+          this.app,
+          this._addMonitor,
+          (mode) => (this._addMonitor = mode),
         )}
         ${renderQualitySheet(
           this._qualityOpen,
@@ -809,8 +1023,8 @@ export class ArrDashboardCard extends LitElement {
         ${this._queueOverflow
           ? renderQueueOverflowSheet(
               true,
-              this._queueOverflow.movie?.title ?? this._queueOverflow.title ?? "",
-              this._queueOverflow.movie?.year,
+              this._queueTitle(this._queueOverflow),
+              this.app === "sonarr" ? undefined : this._queueOverflow.movie?.year,
               this._hideDestructive,
               this._offline,
               () => (this._queueOverflow = undefined),
@@ -819,7 +1033,7 @@ export class ArrDashboardCard extends LitElement {
                 this._queueOverflow = undefined;
                 if (row) {
                   this._openConfirm("d04b", {
-                    title: row.movie?.title ?? row.title,
+                    title: this._queueTitle(row),
                     queue_id: row.id,
                   });
                 }
@@ -829,8 +1043,8 @@ export class ArrDashboardCard extends LitElement {
                 this._queueOverflow = undefined;
                 if (row) {
                   this._openConfirm("d04", {
-                    title: row.movie?.title ?? row.title,
-                    year: row.movie?.year,
+                    title: this._queueTitle(row),
+                    year: this.app === "sonarr" ? undefined : row.movie?.year,
                     queue_id: row.id,
                   });
                 }
@@ -860,6 +1074,7 @@ export class ArrDashboardCard extends LitElement {
             if (this._confirm)
               this._confirm = { ...this._confirm, addImportExclusion: v };
           },
+          { product: this._profile.product, noun: this._profile.noun },
         )}
         <div class="live-region" aria-live="polite"></div>
       </ha-card>
@@ -919,7 +1134,7 @@ export class ArrDashboardCard extends LitElement {
     const screen = this._layoutTablet ? "G01T" : "G01";
     return html`
       <div class="banner" role="alert" data-screen=${screen}>
-        <strong>Can't reach Radarr.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
+        <strong>Can't reach ${this._profile.product}.</strong> Showing data from ${last ? formatRelative(last) : "cache"}.
         Actions are off until it's back. Retrying every 30 s.
         <button class="text" @click=${() => void this._refresh()}>Retry</button>
         <button class="text" @click=${() => this._switchTab("issues")}>
@@ -1025,7 +1240,7 @@ export class ArrDashboardCard extends LitElement {
                   @scroll=${this._onLibraryScroll}
                 ></arr-virtual-list>
               `
-            : html`<p>No movies match your filters.</p>`}
+            : html`<p>No ${this._profile.plural} match your filters.</p>`}
           ${this._libraryItems.length < this._libraryTotal
             ? html`<div data-library-sentinel class="library-load-sentinel"></div>`
             : nothing}
@@ -1037,7 +1252,7 @@ export class ArrDashboardCard extends LitElement {
     `;
   }
 
-  private _libraryTile(m: MovieSlim) {
+  private _libraryTile(m: LibraryItem) {
     return html`
       <button
         class="poster-btn small"
@@ -1048,17 +1263,29 @@ export class ArrDashboardCard extends LitElement {
           alt=""
           loading="lazy"
         />
-        <span class="poster-caption">${m.title}</span>
+        <span class="poster-caption">
+          ${m.title}
+          ${this.app === "sonarr"
+            ? html`<span class="poster-status"
+                >${this._seriesCaption(m as SeriesSlim)}</span
+              >`
+            : nothing}
+        </span>
       </button>
     `;
   }
 
-  private _libraryItem(m: MovieSlim) {
+  private _seriesCaption(series: SeriesSlim): string {
+    const run = seriesRunLabel(series.status);
+    return [series.year, run].filter((part) => part).join(" · ");
+  }
+
+  private _libraryItem(m: LibraryItem) {
     return html`
       <button
         class="poster-btn"
         role="listitem"
-        aria-label=${m.title ?? "Movie"}
+        aria-label=${m.title ?? this._profile.nounTitle}
         @click=${() => void this._openMovieDetail(m)}
       >
         <img
@@ -1066,7 +1293,14 @@ export class ArrDashboardCard extends LitElement {
           alt=""
           loading="lazy"
         />
-        <span class="poster-caption">${m.title}</span>
+        <span class="poster-caption">
+          ${m.title}
+          ${this.app === "sonarr"
+            ? html`<span class="poster-status"
+                >${this._seriesCaption(m as SeriesSlim)}</span
+              >`
+            : nothing}
+        </span>
       </button>
     `;
   }
@@ -1080,6 +1314,7 @@ export class ArrDashboardCard extends LitElement {
       this._state?.disk_space ?? [],
       this.config,
       this._offline,
+      this._profile.product,
     );
   }
 
@@ -1117,7 +1352,7 @@ export class ArrDashboardCard extends LitElement {
   }
 
   private _renderQueueTile(row: QueueItem) {
-    const title = row.movie?.title ?? row.title ?? "Download";
+    const title = this._queueTitle(row);
     const failed = (row.status || "").toLowerCase() === "failed";
     const importAttn = (row.trackedDownloadStatus || "")
       .toLowerCase()
@@ -1125,7 +1360,7 @@ export class ArrDashboardCard extends LitElement {
     const hide = this._hideDestructive;
     const pct = queueProgress(row);
     const exiting = this._exitingQueueIds.includes(row.id);
-    const movieId = row.movie?.id;
+    const movieId = this._queueMediaId(row);
     const poster = movieId ? this._queuePosters[movieId] ?? "" : "";
     const metaLine = [
       row.quality?.quality?.name,
@@ -1239,8 +1474,8 @@ export class ArrDashboardCard extends LitElement {
       <div data-screen=${screen} class="add-pane">
         <input
           class="search-field"
-          placeholder="Search for a movie to add"
-          aria-label="Search for a movie to add"
+          placeholder="Search for a ${this._profile.noun} to add"
+          aria-label="Search for a ${this._profile.noun} to add"
           ?disabled=${this._offline}
           .value=${this._addQuery}
           @input=${(e: Event) => {
@@ -1248,7 +1483,49 @@ export class ArrDashboardCard extends LitElement {
             this._scheduleLookup();
           }}
         />
-        ${libraryUpcoming.length
+        ${this.app === "sonarr" &&
+        this._addPhase === "start" &&
+        !this._addQuery.trim() &&
+        this._upcomingEpisodes.length
+          ? html`
+              <section data-screen="A01" class="row-section">
+                <h3>Upcoming</h3>
+                <div class="episode-list">
+                  ${this._upcomingEpisodes.map((ep) => {
+                    const code = episodeCode(ep.seasonNumber, ep.episodeNumber);
+                    const label = [ep.seriesTitle, code, ep.title]
+                      .filter((part) => part)
+                      .join(" · ");
+                    return html`
+                      <div class="episode-row">
+                        <span>${label}</span>
+                        <span class="episode-when"
+                          >${formatAirDate(ep.airDateUtc)}</span
+                        >
+                      </div>
+                    `;
+                  })}
+                </div>
+              </section>
+            `
+          : nothing}
+        ${this.app === "sonarr" &&
+        this._addPhase === "start" &&
+        !this._addQuery.trim() &&
+        this._addRecent.length
+          ? html`
+              <section class="row-section" data-row="recent">
+                <h3>Recently added</h3>
+                <div
+                  class="coming-grid"
+                  style="--arr-cols: ${this._libraryColumns}"
+                >
+                  ${this._addRecent.map((series) => this._libraryTile(series))}
+                </div>
+              </section>
+            `
+          : nothing}
+        ${this.app !== "sonarr" && libraryUpcoming.length
           ? html`
               <section data-screen="A01" class="row-section">
                 <h3>Coming soon in your library</h3>
@@ -1274,7 +1551,7 @@ export class ArrDashboardCard extends LitElement {
           : nothing}
         ${this._addPhase === "no_results"
           ? html`
-              <p>No movies found for “${this._addQuery}”</p>
+              <p>No ${this._profile.plural} found for “${this._addQuery}”</p>
               <p class="hint-muted">
                 Check the spelling, or try the original title or the year.
               </p>
@@ -1299,12 +1576,14 @@ export class ArrDashboardCard extends LitElement {
                 ${this._lookupResults.map((r) => {
                   const lib = this._lookupLib[this._lookupLibKey(r)];
                   const poster = lookupPosterUrl(r);
-                  const title = String(r.title ?? "Movie");
+                  const title = String(r.title ?? this._profile.nounTitle);
                   const year = r.year;
                   const label =
                     year != null && year !== ""
                       ? `${title} (${String(year)})`
                       : title;
+                  const run =
+                    this.app === "sonarr" ? seriesRunLabel(r.status) : "";
                   return html`
                     <article class="lookup-card" role="listitem">
                       ${poster
@@ -1319,7 +1598,10 @@ export class ArrDashboardCard extends LitElement {
                           ></div>`}
                       <div class="lookup-title">
                         <span>${label}</span>
-                        ${lookupComingSoon(r)
+                        ${run
+                          ? html`<span class="lookup-status">${run}</span>`
+                          : nothing}
+                        ${this.app !== "sonarr" && lookupComingSoon(r)
                           ? html`<span class="lookup-soon">Soon</span>`
                           : nothing}
                       </div>
@@ -1337,11 +1619,13 @@ export class ArrDashboardCard extends LitElement {
                           : html`
                               <button
                                 class="primary"
-                                data-action="add-movie"
+                                data-action=${this.app === "sonarr"
+                                  ? "add-series"
+                                  : "add-movie"}
                                 ?disabled=${this._offline}
                                 @click=${() => this._openAddSheet(r)}
                               >
-                                Add movie
+                                Add ${this._profile.noun}
                               </button>
                             `}
                       </div>
@@ -1355,7 +1639,11 @@ export class ArrDashboardCard extends LitElement {
     `;
   }
 
-  private _detailBody(m: MovieSlim, sidePanel = false) {
+  private _detailBody(item: LibraryItem, sidePanel = false) {
+    if (this.app === "sonarr") {
+      return this._seriesDetailBody(item as SeriesSlim, sidePanel);
+    }
+    const m = item as MovieSlim;
     const extra = this._detailExtra;
     const hide = this._hideDestructive;
     const size = m.sizeOnDisk;
@@ -1479,11 +1767,166 @@ export class ArrDashboardCard extends LitElement {
                     size: m.sizeOnDisk,
                   })}
               >
-                Remove movie
+                Remove ${this._profile.noun}
               </button>
             </section>
           `
         : nothing}
+      </div>
+    `;
+  }
+
+  private _seriesDetailBody(series: SeriesSlim, sidePanel = false) {
+    const extra = this._detailExtra;
+    const hide = this._hideDestructive;
+    const seasons = (
+      (extra?.seasons as SeriesSeason[] | undefined) ??
+      series.seasons ??
+      []
+    )
+      .slice()
+      .sort((a, b) => a.seasonNumber - b.seasonNumber);
+    const run = seriesRunLabel(series.status ?? extra?.status);
+    const episodes = `${series.episodeFileCount ?? 0}/${series.episodeCount ?? 0}`;
+    const screen = sidePanel ? "M01T" : series.hasFile ? "M01" : "M02";
+    return html`
+      <div data-screen=${screen}>
+        <button class="text" @click=${() => this._closeMovieDetail()}>
+          ← Back
+        </button>
+        <h2>${series.title}${series.year ? ` (${series.year})` : ""}</h2>
+        <img
+          class="detail-poster"
+          src=${series.posterUrl ?? ""}
+          alt=""
+          loading="lazy"
+        />
+        <dl class="detail-dl">
+          <dt>Network</dt>
+          <dd>${series.network ?? (extra?.network as string) ?? "—"}</dd>
+          <dt>Status</dt>
+          <dd>${run || series.status || "—"}</dd>
+          <dt>Seasons</dt>
+            <dd>${series.seasonCount ?? (seasons.length || "—")}</dd>
+          <dt>Episodes</dt>
+          <dd>${episodes}</dd>
+        </dl>
+        <p class="overview">
+          ${series.overview ?? (extra?.overview as string) ?? ""}
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            .checked=${series.monitored ?? true}
+            ?disabled=${this._offline}
+            @change=${(e: Event) =>
+              void this._setMonitored(
+                series.id,
+                (e.target as HTMLInputElement).checked,
+                series.title,
+              )}
+          />
+          Monitored
+        </label>
+        ${seasons.length
+          ? html`
+              <section>
+                <h3>Seasons</h3>
+                ${seasons.map((season) => this._seasonRow(series, season))}
+              </section>
+            `
+          : nothing}
+        <div class="detail-actions">
+          <button
+            class="primary"
+            ?disabled=${this._offline}
+            @click=${() => void this._movieSearch(series)}
+          >
+            Search series
+          </button>
+          <button
+            class="primary"
+            data-screen="M04"
+            ?disabled=${this._offline}
+            @click=${() => void this._openManualSearch(series)}
+          >
+            Manual search
+          </button>
+          <button
+            class="text"
+            data-screen="M08"
+            ?disabled=${this._offline}
+            @click=${() => {
+              this._qualityPendingId =
+                this._selectedMovie?.qualityProfileId ??
+                this._state?.quality_profiles?.[0]?.id;
+              this._qualityOpen = true;
+            }}
+          >
+            Change quality profile
+          </button>
+        </div>
+        ${hide
+          ? nothing
+          : html`
+              <section>
+                <h3>Fix or remove</h3>
+                <button
+                  class="outline-danger"
+                  data-action="remove-series"
+                  ?disabled=${this._offline}
+                  @click=${() =>
+                    this._openConfirm("m10", {
+                      title: series.title,
+                      series_id: series.id,
+                    })}
+                >
+                  Remove series
+                </button>
+              </section>
+            `}
+      </div>
+    `;
+  }
+
+  private _seasonRow(series: SeriesSlim, season: SeriesSeason) {
+    const name =
+      season.seasonNumber === 0
+        ? "Specials"
+        : `Season ${season.seasonNumber}`;
+    const files = season.episodeFileCount ?? 0;
+    const total = season.episodeCount ?? 0;
+    return html`
+      <div class="season-row">
+        <div class="season-copy">
+          <strong>${name}</strong>
+          <div class="hint-muted">${files}/${total} episodes</div>
+        </div>
+        <label>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label=${`Monitor ${name}`}
+            .checked=${season.monitored ?? false}
+            ?disabled=${this._offline}
+            @change=${(e: Event) =>
+              void this._setSeasonMonitored(
+                series.id,
+                season.seasonNumber,
+                (e.target as HTMLInputElement).checked,
+              )}
+          />
+          Monitor
+        </label>
+        <button
+          class="text"
+          ?disabled=${this._offline}
+          @click=${() =>
+            void this._seasonSearch(series.id, season.seasonNumber)}
+        >
+          Search
+        </button>
       </div>
     `;
   }
@@ -1515,7 +1958,7 @@ export class ArrDashboardCard extends LitElement {
           class="sheet-panel detail-popup"
           role="dialog"
           aria-modal="true"
-          aria-label=${`${m.title ?? "Movie"} details`}
+          aria-label=${`${m.title ?? this._profile.nounTitle} details`}
           data-screen=${dialogScreen}
         >
           ${this._detailBody(m, false)}
@@ -1546,6 +1989,45 @@ export class ArrDashboardCard extends LitElement {
           ← Back
         </button>
         <h2>Manual search</h2>
+        ${this.app === "sonarr"
+          ? this._episodes.length
+            ? html`
+                <label>
+                  Episode
+                  <select
+                    aria-label="Episode"
+                    data-field="episode"
+                    .value=${String(this._episodeId ?? "")}
+                    @change=${(e: Event) => {
+                      const id = Number((e.target as HTMLSelectElement).value);
+                      this._episodeId = id;
+                      void this._loadEpisodeReleases(id);
+                    }}
+                  >
+                    ${this._episodes.map((episode) => {
+                      const code = episodeCode(
+                        episode.seasonNumber,
+                        episode.episodeNumber,
+                      );
+                      const label = [code, episode.title]
+                        .filter((part) => part)
+                        .join(" ");
+                      return html`<option value=${String(episode.id)}>
+                        ${label || "Episode"}
+                      </option>`;
+                    })}
+                  </select>
+                </label>
+              `
+            : this._episodesLoading
+              ? html`<p>Loading episodes…</p>`
+              : this._episodesError
+                ? html`<p class="error-text">${this._episodesError}</p>`
+                : html`<p>No episodes on this series yet.</p>`
+          : nothing}
+        ${this.app === "sonarr" && !this._episodes.length
+          ? nothing
+          : html`
         <label>
           <input
             type="checkbox"
@@ -1568,8 +2050,10 @@ export class ArrDashboardCard extends LitElement {
             ? html`
                 <p>No releases found</p>
                 <p class="hint-muted">
-                  None of your indexers have this movie right now. Radarr keeps
-                  checking while it's monitored.
+                  None of your indexers have this ${
+                    this.app === "sonarr" ? "episode" : this._profile.noun
+                  } right now.
+                  ${this._profile.product} keeps checking while it's monitored.
                 </p>
               `
             : html`
@@ -1594,6 +2078,7 @@ export class ArrDashboardCard extends LitElement {
                   ${sorted.map((r) => this._releaseRow(r, r.guid === bestGuid))}
                 </div>
               `}
+        `}
       </dialog>
     `;
   }
@@ -1679,7 +2164,7 @@ export class ArrDashboardCard extends LitElement {
   private _fail(command: string, err: unknown): void {
     this._failureDetail =
       err instanceof Error ? err.message : String(err);
-    showActionFailure(this, command, err);
+    showActionFailure(this, command, err, this._profile.product);
   }
 
   private _openConfirm(
@@ -1704,8 +2189,8 @@ export class ArrDashboardCard extends LitElement {
     try {
       switch (kind) {
         case "m10":
-          await this._ws("remove_movie", {
-            movie_id: payload.movie_id,
+          await this._ws(this._profile.commands.remove, {
+            [this._profile.idField]: payload[this._profile.idField],
             delete_files: this._confirm.deleteFiles ?? false,
             add_import_exclusion: this._confirm.addImportExclusion ?? false,
           });
@@ -1755,8 +2240,13 @@ export class ArrDashboardCard extends LitElement {
           this._manualMovieId = undefined;
           break;
         }
-        default:
+        case null:
           break;
+        default: {
+          const _exhaustive: never = kind;
+          void _exhaustive;
+          break;
+        }
       }
       if (kind !== "d04" && kind !== "d04b") {
         await this._refresh();
@@ -1764,12 +2254,16 @@ export class ArrDashboardCard extends LitElement {
     } catch (err) {
       const cmd =
         kind === "m10"
-          ? "remove_movie"
+          ? this._profile.commands.remove
           : kind === "m09"
             ? "delete_file_redownload"
             : kind === "m06"
               ? "grab_release"
-              : "queue_remove";
+              : kind === "d04" || kind === "d04b"
+                ? "queue_remove"
+                : kind === null
+                  ? "queue_remove"
+                  : neverCommand(kind);
       this._fail(cmd, err);
     } finally {
       this._confirmBusy = false;
@@ -1793,7 +2287,7 @@ export class ArrDashboardCard extends LitElement {
         output_path: row.outputPath,
         download_client_id: row.downloadId,
       });
-      showToast(this, toastRetryImport(row.movie?.title ?? "movie"));
+      showToast(this, toastRetryImport(this._queueTitle(row)));
       await this._refresh();
     } catch (err) {
       this._fail("retry_import", err);
@@ -1806,39 +2300,107 @@ export class ArrDashboardCard extends LitElement {
     title?: string,
   ): Promise<void> {
     try {
-      await this._ws("set_monitored", { movie_id: movieId, monitored });
+      await this._ws(this._profile.commands.setMonitored, {
+        [this._profile.idField]: movieId,
+        monitored,
+      });
       showToast(
         this,
         monitored
-          ? toastMonitorOn(title ?? "Movie")
-          : toastMonitorOff(title ?? "Movie"),
+          ? toastMonitorOn(title ?? this._profile.nounTitle)
+          : toastMonitorOff(title ?? this._profile.nounTitle, this._profile.product),
       );
       await this._refresh();
     } catch (err) {
-      this._fail("set_monitored", err);
+      this._fail(this._profile.commands.setMonitored, err);
     }
   }
 
-  private async _movieSearch(m: MovieSlim): Promise<void> {
+  private async _movieSearch(m: LibraryItem): Promise<void> {
     this._searchAgainBusy = true;
     try {
-      await this._ws("movie_search", { movie_id: m.id });
+      await this._ws(this._profile.commands.search, {
+        [this._profile.idField]: m.id,
+      });
       showToast(this, toastSearchAgain(m.title));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("not_found") || msg.includes("gone")) {
-        showToast(this, toastGone());
+        showToast(this, toastGone(this._profile.noun));
         this._selectedMovie = undefined;
       } else {
-        this._fail("movie_search", err);
+        this._fail(this._profile.commands.search, err);
       }
     } finally {
       this._searchAgainBusy = false;
     }
   }
 
-  private async _openManualSearch(m: MovieSlim): Promise<void> {
-    await this._loadReleases(m.id);
+  private async _seasonSearch(
+    seriesId: number,
+    seasonNumber: number,
+  ): Promise<void> {
+    try {
+      await this._ws(this._profile.commands.seasonSearch, {
+        series_id: seriesId,
+        season_number: seasonNumber,
+      });
+      showToast(this, toastSearchAgain(`season ${seasonNumber}`));
+    } catch (err) {
+      this._fail(this._profile.commands.seasonSearch, err);
+    }
+  }
+
+  private async _setSeasonMonitored(
+    seriesId: number,
+    seasonNumber: number,
+    monitored: boolean,
+  ): Promise<void> {
+    try {
+      await this._ws(this._profile.commands.setSeasonMonitored, {
+        series_id: seriesId,
+        season_number: seasonNumber,
+        monitored,
+      });
+      showToast(
+        this,
+        monitored
+          ? toastMonitorOn(`season ${seasonNumber}`)
+          : toastMonitorOff(`season ${seasonNumber}`, this._profile.product),
+      );
+    } catch (err) {
+      this._fail(this._profile.commands.setSeasonMonitored, err);
+    }
+  }
+
+  private async _openManualSearch(m: LibraryItem): Promise<void> {
+    if (this.app !== "sonarr") {
+      await this._loadReleases(m.id);
+      return;
+    }
+    this._manualMovieId = m.id;
+    this._releases = [];
+    this._episodes = [];
+    this._episodeId = undefined;
+    this._episodesError = "";
+    this._episodesLoading = true;
+    try {
+      const res = (await this._ws("get_episodes", {
+        series_id: m.id,
+      })) as { episodes?: SeriesEpisode[] };
+      this._episodes = res.episodes ?? [];
+      this._episodeId = preferredSearchEpisode(this._episodes)?.id;
+    } catch (err) {
+      this._fail("get_episodes", err);
+      this._episodes = [];
+      this._episodesError =
+        err instanceof Error ? err.message : "Could not load episodes.";
+    } finally {
+      this._episodesLoading = false;
+    }
+    if (this._episodeId != null) {
+      await this._loadEpisodeReleases(this._episodeId);
+    }
   }
 
   private async _saveQualityProfile(): Promise<void> {
@@ -1849,8 +2411,8 @@ export class ArrDashboardCard extends LitElement {
     const name = profiles.find((p) => p.id === profileId)?.name ?? "profile";
     this._qualityBusy = true;
     try {
-      await this._ws("set_quality_profile", {
-        movie_id: m.id,
+      await this._ws(this._profile.commands.setQuality, {
+        [this._profile.idField]: m.id,
         quality_profile_id: profileId,
         search: this._qualitySearch,
       });
@@ -1858,7 +2420,7 @@ export class ArrDashboardCard extends LitElement {
       this._qualityOpen = false;
       await this._refresh();
     } catch (err) {
-      this._fail("set_quality_profile", err);
+      this._fail(this._profile.commands.setQuality, err);
     } finally {
       this._qualityBusy = false;
     }
@@ -1869,11 +2431,20 @@ export class ArrDashboardCard extends LitElement {
   }
 }
 
+function neverCommand(kind: never): string {
+  return kind;
+}
+
 defineElement("arr-card", ArrDashboardCard);
 
 class ArrMoviesCard extends ArrDashboardCard {}
 
+class ArrSeriesCard extends ArrDashboardCard {
+  protected override app: ArrApp = "sonarr";
+}
+
 defineElement("arr-movies-card", ArrMoviesCard);
+defineElement("arr-series-card", ArrSeriesCard);
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -1885,14 +2456,23 @@ import "./editor";
 
 (window as unknown as { customCards?: unknown[] }).customCards =
   (window as unknown as { customCards?: unknown[] }).customCards ?? [];
-(window as unknown as { customCards: unknown[] }).customCards.push({
-  type: "custom:arr-movies-card",
-  name: "Arr Dashboard",
-  description: "Radarr library, queue, and add card",
-  preview: true,
-  documentationURL:
-    "https://github.com/SCWPretorius/ha-arr-dashboard",
-});
+(window as unknown as { customCards: unknown[] }).customCards.push(
+  {
+    type: "custom:arr-movies-card",
+    name: "Arr Dashboard",
+    description: "Radarr library, queue, and add card",
+    preview: true,
+    documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
+  },
+  {
+    type: "custom:arr-series-card",
+    name: "Arr Series",
+    icon: "mdi:television",
+    description: "Sonarr library, queue, and add card",
+    preview: true,
+    documentationURL: "https://github.com/SCWPretorius/ha-arr-dashboard",
+  },
+);
 
 export function getConfigElement() {
   return document.createElement("arr-card-editor");

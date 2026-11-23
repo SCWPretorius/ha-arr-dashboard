@@ -17,18 +17,36 @@ async def async_add_series(
     if monitor not in MONITOR_OPTIONS:
         raise ArrClientError(f"Unsupported monitor option: {monitor}")
     search = data.get("search_on_add", data.get("search_for_missing", True))
-    payload: dict[str, Any] = {
-        "title": data["title"],
-        "tvdbId": int(data["tvdbId"]),
-        "qualityProfileId": int(data["quality_profile_id"]),
-        "rootFolderPath": data["root_folder_path"],
-        "seasonFolder": True,
-        "monitored": monitor != "none",
-        "addOptions": {
-            "monitor": monitor,
-            "searchForMissingEpisodes": bool(search),
-        },
+    tvdb_id = int(data["tvdbId"])
+    found = await client.lookup(f"tvdb:{tvdb_id}")
+    series = next(
+        (
+            item
+            for item in found or []
+            if int(item.get("tvdbId") or 0) == tvdb_id
+        ),
+        None,
+    )
+    if series is None:
+        raise ArrClientError(f"No series found for tvdb id {tvdb_id}")
+    payload = {
+        key: value
+        for key, value in series.items()
+        if key != "id"
     }
+    payload.update(
+        {
+            "title": data.get("title") or series.get("title"),
+            "qualityProfileId": int(data["quality_profile_id"]),
+            "rootFolderPath": data["root_folder_path"],
+            "seasonFolder": True,
+            "monitored": monitor != "none",
+            "addOptions": {
+                "monitor": monitor,
+                "searchForMissingEpisodes": bool(search),
+            },
+        }
+    )
     if data.get("year") is not None:
         payload["year"] = data["year"]
     if data.get("imdbId"):

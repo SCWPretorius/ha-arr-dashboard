@@ -1,5 +1,12 @@
 import { html, nothing } from "lit";
 import type { TemplateResult } from "lit";
+import {
+  isMonitorMode,
+  MONITOR_MODES,
+  monitorLabel,
+  type ArrApp,
+  type MonitorMode,
+} from "./app-profile";
 import { formatBytes } from "./format";
 import { profileSummaryLine } from "./profile-summary";
 import type { ArrCardConfig } from "./types";
@@ -10,14 +17,15 @@ export function renderIssuesPanel(
   disks: DiskItem[],
   config: ArrCardConfig,
   offline: boolean,
+  product = "Radarr",
 ): TemplateResult {
   const issueCount = health.filter(
     (h) => h.type === "warning" || h.type === "error",
   ).length;
   const intro = offline
-    ? "Can't reach Radarr right now."
+    ? `Can't reach ${product} right now.`
     : issueCount > 0
-      ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+      ? `${product} reports ${issueCount} issue(s). Fix them in ${product}'s settings.`
       : "Everything looks good.";
   const link = config.external_link;
   return html`
@@ -30,7 +38,7 @@ export function renderIssuesPanel(
               (h) => html`
                 <p class="status-line">
                   <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                  ${h.source ?? ""} · from Radarr — ${h.message}
+                  ${h.source ?? ""} · from ${product} — ${h.message}
                 </p>
               `,
             )
@@ -57,7 +65,7 @@ export function renderIssuesPanel(
               target="_blank"
               rel="noopener"
             >
-              Open Radarr
+              Open ${product}
             </a>
           `
         : nothing}
@@ -71,6 +79,7 @@ export function renderStatusSheet(
   disks: DiskItem[],
   config: ArrCardConfig,
   onClose: () => void,
+  product = "Radarr",
 ): TemplateResult | typeof nothing {
   if (!open) return nothing;
   const link = config.external_link;
@@ -79,7 +88,7 @@ export function renderStatusSheet(
   ).length;
   const intro =
     issueCount > 0
-      ? `Radarr reports ${issueCount} issue(s). Fix them in Radarr's settings.`
+      ? `${product} reports ${issueCount} issue(s). Fix them in ${product}'s settings.`
       : "Everything looks good.";
   return html`
     <div
@@ -89,9 +98,9 @@ export function renderStatusSheet(
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Radarr status">
+      <div class="sheet-panel" role="dialog" aria-label="${product} status">
         <div class="sheet-header">
-          <h2>Radarr status</h2>
+          <h2>${product} status</h2>
           <button class="text" @click=${onClose}>Done</button>
         </div>
         <p class="hint-muted">${intro}</p>
@@ -102,7 +111,7 @@ export function renderStatusSheet(
                 (h) => html`
                   <p class="status-line">
                     <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-                    ${h.source ?? ""} · from Radarr — ${h.message}
+                    ${h.source ?? ""} · from ${product} — ${h.message}
                   </p>
                 `,
               )
@@ -127,7 +136,7 @@ export function renderStatusSheet(
                 target="_blank"
                 rel="noopener"
               >
-                Open Radarr
+                Open ${product}
               </a>
             `
           : nothing}
@@ -179,9 +188,19 @@ export function renderAddSheet(
   setMinAvail: (v: string) => void,
   onCancel: () => void,
   onConfirm: () => void,
+  app: ArrApp = "radarr",
+  monitor: MonitorMode = "all",
+  setMonitor: (mode: MonitorMode) => void = () => undefined,
 ): TemplateResult | typeof nothing {
   if (!open || !pick) return nothing;
+  const series = app === "sonarr";
   const screen = layoutTablet ? "A04T" : "A04";
+  const searchLabel = series
+    ? "Search for missing episodes"
+    : "Start searching now";
+  const searchHint = series
+    ? "Sonarr looks for missing episodes straight away."
+    : "Radarr looks for a download straight away.";
   return html`
     <div
       class="sheet-backdrop"
@@ -190,7 +209,11 @@ export function renderAddSheet(
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div class="sheet-panel" role="dialog" aria-label="Add movie">
+      <div
+        class="sheet-panel"
+        role="dialog"
+        aria-label=${series ? "Add series" : "Add movie"}
+      >
         <h2>Add ${pick.title as string}${pick.year ? ` (${pick.year})` : ""}</h2>
         <label>
           Quality profile
@@ -224,21 +247,46 @@ export function renderAddSheet(
             )}
           </select>
         </label>
-        <details>
-          <summary>More options</summary>
-          <label>
-            Minimum availability
-            <select
-              .value=${minAvailability}
-              @change=${(e: Event) =>
-                setMinAvail((e.target as HTMLSelectElement).value)}
-            >
-              <option value="announced">Announced</option>
-              <option value="inCinemas">In cinemas</option>
-              <option value="released">Released</option>
-            </select>
-          </label>
-        </details>
+        ${series
+          ? html`
+              <label>
+                Monitor
+                <select
+                  data-field="monitor"
+                  aria-label="Monitor"
+                  .value=${monitor}
+                  @change=${(e: Event) => {
+                    const next = (e.target as HTMLSelectElement).value;
+                    if (isMonitorMode(next)) setMonitor(next);
+                  }}
+                >
+                  ${MONITOR_MODES.map(
+                    (mode) => html`
+                      <option value=${mode} ?selected=${mode === monitor}>
+                        ${monitorLabel(mode)}
+                      </option>
+                    `,
+                  )}
+                </select>
+              </label>
+            `
+          : html`
+              <details>
+                <summary>More options</summary>
+                <label>
+                  Minimum availability
+                  <select
+                    .value=${minAvailability}
+                    @change=${(e: Event) =>
+                      setMinAvail((e.target as HTMLSelectElement).value)}
+                  >
+                    <option value="announced">Announced</option>
+                    <option value="inCinemas">In cinemas</option>
+                    <option value="released">Released</option>
+                  </select>
+                </label>
+              </details>
+            `}
         <label>
           <input
             type="checkbox"
@@ -247,31 +295,35 @@ export function renderAddSheet(
             @change=${(e: Event) =>
               setSearchOnAdd((e.target as HTMLInputElement).checked)}
           />
-          Start searching now
+          ${searchLabel}
         </label>
-        <p class="hint-muted">Radarr looks for a download straight away.</p>
-        <label>
-          <input
-            type="checkbox"
-            role="switch"
-            .checked=${monitored}
-            @change=${(e: Event) =>
-              setMonitored((e.target as HTMLInputElement).checked)}
-          />
-          Monitor this movie
-        </label>
-        <p class="hint-muted">
-          Radarr grabs it when it's released and upgrades it later.
-        </p>
+        <p class="hint-muted">${searchHint}</p>
+        ${series
+          ? nothing
+          : html`
+              <label>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  .checked=${monitored}
+                  @change=${(e: Event) =>
+                    setMonitored((e.target as HTMLInputElement).checked)}
+                />
+                Monitor this movie
+              </label>
+              <p class="hint-muted">
+                Radarr grabs it when it's released and upgrades it later.
+              </p>
+            `}
         <div class="dialog-actions">
           <button class="text" @click=${onCancel}>Cancel</button>
           <button
             class="primary"
-            data-action="add-movie"
+            data-action=${series ? "add-series" : "add-movie"}
             ?disabled=${offline || busy}
             @click=${onConfirm}
           >
-            ${busy ? "Adding…" : "Add movie"}
+            ${busy ? "Adding…" : series ? "Add series" : "Add movie"}
           </button>
         </div>
       </div>

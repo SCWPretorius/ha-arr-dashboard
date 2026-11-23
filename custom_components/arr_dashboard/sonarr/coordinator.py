@@ -145,6 +145,19 @@ def slim_series(series: dict[str, Any], entry_id: str) -> dict[str, Any]:
     }
 
 
+def slim_episode(episode: dict[str, Any]) -> dict[str, Any]:
+    """Slim an episode for the manual-search picker."""
+    return {
+        "id": episode.get("id"),
+        "seriesId": episode.get("seriesId"),
+        "seasonNumber": episode.get("seasonNumber"),
+        "episodeNumber": episode.get("episodeNumber"),
+        "title": episode.get("title") or "",
+        "hasFile": episode.get("hasFile"),
+        "monitored": episode.get("monitored"),
+    }
+
+
 def slim_calendar_episode(episode: dict[str, Any]) -> dict[str, Any]:
     """Slim a calendar episode for the Add tab."""
     series = episode.get("series") if isinstance(episode.get("series"), dict) else {}

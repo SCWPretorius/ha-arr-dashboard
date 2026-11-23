@@ -40,7 +40,7 @@ from .radarr.actions import async_delete_file_redownload as async_delete_movie_f
 from .radarr.actions import async_retry_import as async_retry_movie_import
 from .sonarr.actions import async_add_series
 from .sonarr.actions import async_retry_import as async_retry_series_import
-from .sonarr.coordinator import slim_calendar_episode, slim_series
+from .sonarr.coordinator import slim_calendar_episode, slim_episode, slim_series
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +50,7 @@ _SONARR_ONLY = frozenset(
         "get_series",
         "series_search",
         "season_search",
+        "get_episodes",
         "remove_series",
         "set_series_monitored",
         "set_series_quality_profile",
@@ -247,6 +248,16 @@ async def _handle_command(
                 int(data["series_id"]), int(data["season_number"])
             )
             return {"ok": True}
+        case "get_episodes":
+            raw = await client.get_episodes(int(data["series_id"]))
+            episodes = sorted(
+                (slim_episode(episode) for episode in raw),
+                key=lambda episode: (
+                    episode.get("seasonNumber") or 0,
+                    episode.get("episodeNumber") or 0,
+                ),
+            )
+            return {"episodes": episodes}
         case "release_search":
             return await _release_search(client, app, data)
         case "grab_release":
@@ -463,7 +474,10 @@ async def _release_search(
 ) -> dict[str, Any]:
     match app:
         case "sonarr":
-            releases = await client.series_releases(int(data["series_id"]))
+            episode_id = data.get("episode_id")
+            if episode_id is None:
+                raise ValueError("episode_id is required")
+            releases = await client.episode_releases(int(episode_id))
             return {"releases": releases}
         case "radarr":
             releases = await client.movie_search_manual(int(data["movie_id"]))

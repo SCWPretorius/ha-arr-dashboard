@@ -159,8 +159,15 @@ class SonarrClient(ArrClientBase):
             }
         )
 
-    async def series_releases(self, series_id: int) -> list[dict[str, Any]]:
-        return await self.get("/api/v3/release", params={"seriesId": series_id})
+    async def get_episodes(self, series_id: int) -> list[dict[str, Any]]:
+        result = await self.get("/api/v3/episode", params={"seriesId": series_id})
+        if not isinstance(result, list):
+            return []
+        return result
+
+    async def episode_releases(self, episode_id: int) -> list[dict[str, Any]]:
+        """Interactive search. Sonarr requires an episode id, not a series id."""
+        return await self.get("/api/v3/release", params={"episodeId": episode_id})
 
     async def grab_release(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self.post("/api/v3/release", json=payload)

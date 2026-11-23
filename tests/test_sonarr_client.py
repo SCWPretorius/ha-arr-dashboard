@@ -45,6 +45,17 @@ async def test_validate_rejects_version_below_4() -> None:
 
 async def test_add_series_payload() -> None:
     client = _client()
+    client.lookup = AsyncMock(  # type: ignore[method-assign]
+        return_value=[
+            {
+                "tvdbId": 42,
+                "title": "Show",
+                "year": 2019,
+                "titleSlug": "show",
+                "seasons": [{"seasonNumber": 1, "monitored": False}],
+            }
+        ]
+    )
     client.post = AsyncMock(return_value={"id": 9, "title": "Show", "year": 2020})  # type: ignore[method-assign]
     await async_add_series(
         client,
@@ -59,6 +70,7 @@ async def test_add_series_payload() -> None:
             "monitor": "future",
         },
     )
+    client.lookup.assert_awaited_once_with("tvdb:42")
     body = client.post.await_args.kwargs["json"]
     assert client.post.await_args.args[0] == "/api/v3/series"
     assert body["seasonFolder"] is True
@@ -68,6 +80,10 @@ async def test_add_series_payload() -> None:
     assert body["addOptions"]["searchForMissingEpisodes"] is False
     assert body["tvdbId"] == 42
     assert body["imdbId"] == "tt1"
+    assert body["titleSlug"] == "show"
+    assert body["seasons"] == [{"seasonNumber": 1, "monitored": False}]
+    assert body["year"] == 2020
+    assert "id" not in body
 
 
 async def test_delete_and_searches() -> None:
@@ -88,9 +104,14 @@ async def test_delete_and_searches() -> None:
     assert command["name"] == "SeasonSearch"
     assert command["seasonNumber"] == 2
 
-    await client.series_releases(7)
-    assert client.get.await_args.args[0] == "/api/v3/release"
+    episodes = await client.get_episodes(7)
+    assert client.get.await_args.args[0] == "/api/v3/episode"
     assert client.get.await_args.kwargs["params"] == {"seriesId": 7}
+    assert episodes == [{"guid": "abc"}]
+
+    await client.episode_releases(15)
+    assert client.get.await_args.args[0] == "/api/v3/release"
+    assert client.get.await_args.kwargs["params"] == {"episodeId": 15}
 
     client.post = AsyncMock(return_value={"id": 4, "name": "DownloadedEpisodesScan"})  # type: ignore[method-assign]
     await client.retry_import("/downloads/show", "sab-1")

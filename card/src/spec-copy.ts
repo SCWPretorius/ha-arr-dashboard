@@ -42,8 +42,8 @@ export function toastMonitorOn(title: string): string {
   return `Monitoring on for ${title}.`;
 }
 
-export function toastMonitorOff(title: string): string {
-  return `Monitoring off for ${title}. Radarr won't download or upgrade it.`;
+export function toastMonitorOff(title: string, product = "Radarr"): string {
+  return `Monitoring off for ${title}. ${product} won't download or upgrade it.`;
 }
 
 export function toastDeleteRedownload(title: string): string {
@@ -56,16 +56,20 @@ export function toastRemoveMovie(title: string, deleted: boolean): string {
     : `Removed ${title}.`;
 }
 
-export function toastGone(): string {
-  return "That movie was already removed.";
+export function toastGone(noun = "movie"): string {
+  return `That ${noun} was already removed.`;
 }
 
-export function toastFailure(verb: string, message: string): string {
-  return `Couldn't ${verb}. Radarr said: ${message}`;
+export function toastFailure(
+  verb: string,
+  message: string,
+  product = "Radarr",
+): string {
+  return `Couldn't ${verb}. ${product} said: ${message}`;
 }
 
-export function toastRadarrBack(): string {
-  return "Radarr is back.";
+export function toastRadarrBack(product = "Radarr"): string {
+  return `${product} is back.`;
 }
 
 export const FAILURE_VERBS: Record<string, string> = {
@@ -78,4 +82,13 @@ export const FAILURE_VERBS: Record<string, string> = {
   set_monitored: "update monitoring",
   delete_file_redownload: "delete the file",
   remove_movie: "remove the movie",
+  add_series: "add the series",
+  series_search: "start the search",
+  season_search: "search the season",
+  release_search: "search for releases",
+  get_episodes: "load episodes",
+  remove_series: "remove the series",
+  set_series_quality_profile: "change the profile",
+  set_series_monitored: "update monitoring",
+  set_season_monitored: "update monitoring",
 };

@@ -1,6 +1,6 @@
 # Arr Dashboard
 
-Radarr library, download queue, and add-movie card for Home Assistant — one HACS install bundles the integration and Lovelace card.
+Radarr and Sonarr library, queue, and add cards for Home Assistant. One HACS install bundles the integration and both Lovelace cards. Add the integration once per app: one config entry for Radarr and a second for Sonarr. Put each card on its own dashboard view.
 
 ## Install
 
@@ -10,7 +10,7 @@ Radarr library, download queue, and add-movie card for Home Assistant — one HA
 2. In Home Assistant: **HACS → Integrations → ⋮ → Custom repositories**.
 3. Add the repository URL and category **Integration**.
 4. Search for **Arr Dashboard**, download, and restart Home Assistant.
-5. **Settings → Devices & services → Add integration → Arr Dashboard** and enter your Radarr URL, API key, and options.
+5. **Settings → Devices & services → Add integration → Arr Dashboard**. Choose Radarr or Sonarr, then enter that app’s URL and API key (Settings → General → Security → API Key). Radarr and Sonarr must be 4.0 or newer. Repeat for the other app so you have two config entries.
 
 The Lovelace card JavaScript is bundled with the integration — no separate Dashboard repo or manual Resources entry.
 
@@ -21,6 +21,24 @@ The Lovelace card JavaScript is bundled with the integration — no separate Das
 3. Add the integration under **Settings → Devices & services**.
 
 ## Card YAML examples
+
+`instance` is the config entry title or entry id. These two views are the usual setup:
+
+**Movies view:**
+
+```yaml
+type: custom:arr-movies-card
+instance: Radarr
+title: Movies
+```
+
+**Series view:**
+
+```yaml
+type: custom:arr-series-card
+instance: Sonarr
+title: Series
+```
 
 **Wall tablet (Library default, hide destructive actions):**
 
